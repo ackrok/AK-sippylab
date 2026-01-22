@@ -30,11 +30,12 @@ PhotometryTable(1:length(Frames),2)=Frames(:,2);
 toc
 
 % R0 - red 
-% R1 - green
+% G1 - green
 ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
 signalRaw_red = PhotometryTable(PhotometryTable(:,3)==ledState,[2,4]); 
 ledState = 2; % which LED state we are drawing from, ledState 2 is 470nm
 signalRaw_grn = PhotometryTable(PhotometryTable(:,3)==ledState,[2,5]); 
+% ledState = 7; % L415, L470, L560
 
 %% create data structure
 data = struct;
