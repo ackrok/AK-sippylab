@@ -49,15 +49,25 @@ beh.trialEnd = TS0(idx);
 rowsHit = find(statetrans.Id == 'Hit'); % row index for a Hit
 % hitTrial = statetrans.Trial(rowsHit)+1; % find the Trial # for Hits
 % hitError = find(diff(sort(hitTrial)) == 0); % ensure that no overlappying Hits on the same trial
-beh.hits = TS0(rowsHit);
+try beh.hits = TS0(rowsHit);
+catch beh.hits = [];
+end
 
 %% MISS
-beh.miss = TS0(statetrans.Id == 'Miss');
+try beh.miss = TS0(statetrans.Id == 'Miss');
+catch beh.miss = [];
+end
 
 %% LICK: all lick left and all lick rights
-beh.lickLeft = TS0(statetrans.Id == 'LickLeft');
-beh.lickRight = TS0(statetrans.Id == 'LickRight');
-beh.lickCenter = TS0(statetrans.Id == 'LickCenter');
+try beh.lickLeft = TS0(statetrans.Id == 'LickLeft');
+catch beh.lickLeft = [];
+end
+try beh.lickRight = TS0(statetrans.Id == 'LickRight');
+catch beh.lickRight = [];
+end
+try beh.lickCenter = TS0(statetrans.Id == 'LickCenter');
+catch beh.lickCenter = [];
+end
 
 %% LICK CENTER -- mouse initiates trial
 % Identify row index for first LickCenter for each unique Trial
@@ -72,7 +82,9 @@ for i = 1:numel(trials)
 end
 trialFail = find(isnan(rowsLickCenter_trial)); % identify any trials that were not initiated
 rowsLickCenter_trial(trialFail) = [];
-beh.lickStartTrial = TS0(rowsLickCenter_trial);
+try beh.lickStartTrial = TS0(rowsLickCenter_trial);
+catch beh.lickStartTrial = [];
+end
 
 %% LICK CENTER -- preceding a hit
 rowsLickCenter_preHit = nan(numel(rowsHit),1); % store preceding LickCenter (NaN if none)
@@ -85,14 +97,20 @@ for k = 1:numel(rowsHit)
         end
     end
 end
-beh.lickStartHitTrial = TS0(rowsLickCenter_preHit);
+try beh.lickStartHitTrial = TS0(rowsLickCenter_preHit);
+catch beh.lickStartHitTrial = [];
+end
 beh.rewLatency = beh.hits - beh.lickStartHitTrial;
 
 %% INCORRECT ACTION aka NO HOLD
-beh.noHold = TS0(statetrans.Id == 'IncorrectAction');
+try beh.noHold = TS0(statetrans.Id == 'IncorrectAction');
+catch beh.noHold = [];
+end
 
 %% TIMEOUT aka ERROR
-beh.error = TS0(statetrans.Id == 'Timeout');
+try beh.error = TS0(statetrans.Id == 'Timeout');
+catch beh.error = [];
+end
 
 %% TRIAL END ACTION
 % Group trials and get unique trial ids
