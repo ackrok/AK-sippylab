@@ -24,6 +24,7 @@ function comb = extractComb_raw(varargin)
 %% INPUTS
 switch nargin
     case 0
+        fprintf('Select .mat files that contain raw photometry data. \n');
         [fName,fPath] = uigetfile('*.mat','Select the DATA files','MultiSelect','on');
     case 2
         fName = varargin{1}; 

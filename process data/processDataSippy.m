@@ -29,23 +29,37 @@ PhotometryTable=table2array(RawTable(:,[1:3, pull+4])); % extract data colums th
 PhotometryTable(1:length(Frames),2)=Frames(:,2);
 toc
 
-% R0 - red 
+%% G0 - red 
 % R1 - green
-ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
-signalRaw_red = PhotometryTable(PhotometryTable(:,3)==ledState,[2,4]); 
+clearvars signalRaw
 ledState = 2; % which LED state we are drawing from, ledState 2 is 470nm
-signalRaw_grn = PhotometryTable(PhotometryTable(:,3)==ledState,[2,5]); 
+if any(PhotometryTable(:,3) == ledState)
+    % signalRaw_grn = PhotometryTable(PhotometryTable(:,3)==ledState,[2,5]); 
+    signalRaw{1} = PhotometryTable(PhotometryTable(:,3)==ledState,[2,5]); 
+end
+ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
+if any(PhotometryTable(:,3) == ledState)
+    % signalRaw_red = PhotometryTable(PhotometryTable(:,3)==ledState,[2,4]); 
+    signalRaw{2} = PhotometryTable(PhotometryTable(:,3)==ledState,[2,4]); 
+end
 
 %% create data structure
 data = struct;
 data.ID = dayName; data.mouse = mouse; data.date = date;
-data.acq.FPnames = {'5-HT','rDA'};
-data.acq.nFPchan = 2;
-cutLength = floor(size(signalRaw_grn,1)/300)*300;
-signalRaw_grn = signalRaw_grn(1:cutLength,:);
-signalRaw_red = signalRaw_red(1:cutLength,:);
-data.acq.time{1} = signalRaw_grn(:,1); data.acq.time{2} = signalRaw_red(:,1);
-data.acq.FP{1} = signalRaw_grn(:,2); data.acq.FP{2} = signalRaw_red(:,2);
+opts = {'DA','5-HT','NE','GCaMP'};
+choice = menu('Select photometry signal for green channel',opts);
+data.acq.FPnames = {opts{choice}};
+if any(PhotometryTable(:,3) == 4) % if used 565nm 
+    opts = {'rDA','RCaMP'};
+    choice = menu('Select photometry signal for red channel',opts);
+    data.acq.FPnames{2} = opts{choice};
+end
+data.acq.nFPchan = length(data.acq.FPnames);
+cutLength = floor(size(signalRaw{1},1)/300)*300;
+for a = 1:data.acq.nFPchan
+    data.acq.time{a} = signalRaw{a}(1:cutLength, 1);
+    data.acq.FP{a} = signalRaw{a}(1:cutLength, 2);
+end
 
 fiberTS = data.acq.time{1}/1e3;  %in seconds - not starting at zero
 fiberTriggerBin = ((fiberTS(end-1,1)-fiberTS(1,1))/...
