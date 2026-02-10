@@ -34,12 +34,18 @@ barY = nan(length(sub),5); % clear var
 barLbl = {'hit R','hit L','miss','noHold','other'};
 for a = 1:length(sub) % iterate over all recordings for this unique mouse ID
     beh = sub(a).beh; 
+
     side = [beh.lastAct.lastLick];
     side = side(beh.lastAct.lastAct == 'Hit');
     barY(a,1) = length(find(side == "LickRight"));
     barY(a,2) = length(find(side == "LickLeft"));
 
-    lastAct = [beh.lastAct.lastAct];
+    lastAct = cellstr([beh.lastAct.lastAct]);
+    if any(strcmp(cellstr([beh.lastAct.lastAct]),'LeftHit')) || ...
+        any(strcmp(cellstr([beh.lastAct.lastAct]),'RightHit'))
+        barY(a,1) = numel(find(strcmp(lastAct, 'RightHit')));
+        barY(a,2) = numel(find(strcmp(lastAct, 'LeftHit')));
+    end
     barY(a,3) = numel(find(strcmp(lastAct, 'Miss')));
     barY(a,4) = numel(find(strcmp(lastAct, 'IncorrectAction')));
     barY(a,5) = length(lastAct) - sum(barY(a,1:4));

@@ -32,7 +32,7 @@ elapTime_0 = elapTime - elapTime(1);
 TS0 = elapTime_0(:); % use elapsed time **CAN CHANGE**
 
 %% 
-% uni = unique(statetrans.Id); % identify unique behavioral event names
+uni = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
 nTrial = max(statetrans.Trial)+1; % total number of trials
 
 %% TRIAL START
@@ -45,8 +45,23 @@ for n = 1:nTrial
 end
 beh.trialEnd = TS0(idx);
 
+%% LED and sound on
+if any(strcmp(uni,'LEDon'))
+    beh.ledOn = TS0(statetrans.Id == 'LEDon');
+end
+if any(strcmp(uni,'SoundOnLeft')) || any(strcmp(uni,'SoundOnRight'))
+    beh.soundOn = [TS0(statetrans.Id == 'SoundOnLeft'); TS0(statetrans.Id == 'SoundOnRight')];
+end
 %% HIT
-rowsHit = find(statetrans.Id == 'Hit'); % row index for a Hit
+if any(strcmp(uni,'Hit'))
+    rowsHit = find(statetrans.Id == 'Hit'); % row index for a Hit
+elseif any(strcmp(uni,'LeftHit')) || any(strcmp(uni,'RightHit'))
+    leftHit = find(statetrans.Id == 'LeftHit');
+    rightHit = find(statetrans.Id == 'RightHit');
+    rowsHit = sort([leftHit; rightHit]);
+    beh.hitsL = TS0(leftHit);
+    beh.hitsR = TS0(rightHit);
+end
 % hitTrial = statetrans.Trial(rowsHit)+1; % find the Trial # for Hits
 % hitError = find(diff(sort(hitTrial)) == 0); % ensure that no overlappying Hits on the same trial
 try beh.hits = TS0(rowsHit);
