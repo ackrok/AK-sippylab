@@ -24,6 +24,10 @@ switch nargin
         statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
 end
 
+if statetrans.Id(end) == "ITI"
+    statetrans(end,:) = [];
+end
+
 %% time stamps
 compTime = [statetrans.TimeOfDay]./1e3; % computer time
 compTime_0 = compTime - compTime(1);
@@ -129,9 +133,6 @@ end
 
 %% TRIAL END ACTION
 % Group trials and get unique trial ids
-if statetrans.Id(end) == "ITI"
-    statetrans(end,:) = [];
-end
 [G, trial] = findgroups(statetrans.Trial);
 
 % For each group, take the last Id (last row within that trial)
