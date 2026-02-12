@@ -129,6 +129,9 @@ end
 
 %% TRIAL END ACTION
 % Group trials and get unique trial ids
+if statetrans.Id(end) == "ITI"
+    statetrans(end,:) = [];
+end
 [G, trial] = findgroups(statetrans.Trial);
 
 % For each group, take the last Id (last row within that trial)
