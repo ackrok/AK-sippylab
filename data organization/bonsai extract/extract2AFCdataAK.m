@@ -13,6 +13,8 @@ function beh = extract2AFCdataAK(varargin)
 % 'beh' - structure with extracted behavioral data
 %
 % Written by Anya Krok, Dec 2025
+% Updated by Anya Krok, Feb 2026 to organize data in tables based on Trial
+% and Hits
 
 switch nargin
     case 1
@@ -38,44 +40,9 @@ TS0 = elapTime_0(:); % use elapsed time **CAN CHANGE**
 %% 
 uni = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
 nTrial = max(statetrans.Trial)+1; % total number of trials
-
-%% TRIAL START
-beh.trialStart = TS0(statetrans.Id == 'ITI');
-
-%% TRIAL END
-idx = nan(nTrial,1);
-for n = 1:nTrial
-    idx(n) = find([statetrans.Trial] == n-1, 1, 'last');
-end
-beh.trialEnd = TS0(idx);
-
-%% LED and sound on
-if any(strcmp(uni,'LEDon'))
-    beh.ledOn = TS0(statetrans.Id == 'LEDon');
-end
-if any(strcmp(uni,'SoundOnLeft')) || any(strcmp(uni,'SoundOnRight'))
-    beh.soundOn = [TS0(statetrans.Id == 'SoundOnLeft'); TS0(statetrans.Id == 'SoundOnRight')];
-end
-%% HIT
-if any(strcmp(uni,'Hit'))
-    rowsHit = find(statetrans.Id == 'Hit'); % row index for a Hit
-elseif any(strcmp(uni,'LeftHit')) || any(strcmp(uni,'RightHit'))
-    leftHit = find(statetrans.Id == 'LeftHit');
-    rightHit = find(statetrans.Id == 'RightHit');
-    rowsHit = sort([leftHit; rightHit]);
-    beh.hitsL = TS0(leftHit);
-    beh.hitsR = TS0(rightHit);
-end
-% hitTrial = statetrans.Trial(rowsHit)+1; % find the Trial # for Hits
-% hitError = find(diff(sort(hitTrial)) == 0); % ensure that no overlappying Hits on the same trial
-try beh.hits = TS0(rowsHit);
-catch beh.hits = [];
-end
-
-%% MISS
-try beh.miss = TS0(statetrans.Id == 'Miss');
-catch beh.miss = [];
-end
+trials = unique(statetrans.Trial); % unique events
+[G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
+if trialNum(1) == 0; trialNum = trialNum+1; end % adjust for zero index 
 
 %% LICK: all lick left and all lick rights
 try beh.lickLeft = TS0(statetrans.Id == 'LickLeft');
@@ -88,38 +55,158 @@ try beh.lickCenter = TS0(statetrans.Id == 'LickCenter');
 catch beh.lickCenter = [];
 end
 
-%% LICK CENTER -- mouse initiates trial
-% Identify row index for first LickCenter for each unique Trial
-trials = unique(statetrans.Trial);
-rowsLickCenter_trial = nan(size(trials));
-for i = 1:numel(trials)
-    rows = find(statetrans.Trial == trials(i));
-    k = find(statetrans.Id(rows) == "LickCenter", 1, 'first');
-    if ~isempty(k)
-        rowsLickCenter_trial(i) = rows(k);
-    end
+%% TRIAL TABLE
+% TRIAL START
+trialStart = TS0(statetrans.Id == 'ITI');
+
+% TRIAL END
+idx = nan(nTrial,1);
+for n = 1:nTrial
+    idx(n) = find([statetrans.Trial] == n-1, 1, 'last');
 end
-trialFail = find(isnan(rowsLickCenter_trial)); % identify any trials that were not initiated
-rowsLickCenter_trial(trialFail) = [];
-try beh.lickStartTrial = TS0(rowsLickCenter_trial);
-catch beh.lickStartTrial = [];
+trialEnd = TS0(idx);
+
+% LED ON
+ledOn = nan(length(trialStart),1);
+if any(strcmp(uni,'LEDon'))
+    ledOn = TS0(statetrans.Id == 'LEDon');
 end
 
-%% LICK CENTER -- preceding a hit
-rowsLickCenter_preHit = nan(numel(rowsHit),1); % store preceding LickCenter (NaN if none)
-for k = 1:numel(rowsHit)
-    r = rowsHit(k);
-    if r > 1
-        idx = find(statetrans.Id(1:r-1) == 'LickCenter', 1, 'last');
-        if ~isempty(idx)
-            rowsLickCenter_preHit(k) = idx;
-        end
+% LICK to START TRIAL
+% Identify row index for first LickCenter for each unique Trial
+pokeCenter_firstInTrial = nan(size(trials));
+for ii = 1:numel(trials)
+    rows = find(statetrans.Trial == trials(ii));
+    if isempty(rows); continue; end
+    if any(strcmp(uni,'LEDon')) % if LEDon exists
+        % then consider only rows strictly after LEDon event
+        ids = string(statetrans.Id(rows)); % Ids for this trial only
+        isLed = contains(ids,"LEDon",'IgnoreCase',true);
+        idxLed = find(isLed, 1, 'first'); % row relative to this trial only
+        candidateRows = rows(rows > rows(idxLed));
+    else
+        candidateRows = rows; % else, fallback to whole trial
+    end
+    candIds = string(statetrans.Id(candidateRows));
+    k = find(candIds == "LickCenter", 1, 'first');
+    if ~isempty(k)
+        pokeCenter_firstInTrial(ii) = candidateRows(k);
     end
 end
-try beh.lickStartHitTrial = TS0(rowsLickCenter_preHit);
-catch beh.lickStartHitTrial = [];
+trialFail = find(isnan(pokeCenter_firstInTrial)); % identify any trials that were not initiated
+pokeCenter_firstInTrial(trialFail) = [];
+try pokeStartTrial = TS0(pokeCenter_firstInTrial);
+catch pokeStartTrial = [];
 end
-beh.rewLatency = beh.hits - beh.lickStartHitTrial;
+
+% SOUND ON and SIDE
+soundOn = nan(length(trialStart),1); % initialize variable as NaN array
+hitSide = strings(numel(trialStart),1);  % initialize variable as string array
+if any(strcmp(uni,'SoundOnLeft')) || any(strcmp(uni,'SoundOnRight'))
+    soundOn = sort([TS0(statetrans.Id == 'SoundOnLeft'); TS0(statetrans.Id == 'SoundOnRight')]);
+
+    isRightTrial = splitapply(@(ids) any(ids == "SoundOnRight"), ...
+        string(statetrans.Id(:)), G); % return logical if for given trial, there is sound on right
+    isLeftTrial  = splitapply(@(ids) any(ids == "SoundOnLeft"), ...
+        string(statetrans.Id(:)), G); % return logical if for given trial, there is sound on left
+    hitSide(isRightTrial) = "right"; % assign by logical index
+    hitSide(isLeftTrial)  = "left"; % assign by logical index
+    hitSide(~(isRightTrial | isLeftTrial)) = ""; % mark unspecified as empty
+    hitSide = cellstr(hitSide); % convert to cell array of character vectors
+end
+
+% For each group, take the last Id (last row within that trial)
+lastAct = splitapply(@(ids) ids(end), statetrans.Id, G);   % categorical array, one per trial
+
+% Take second to last Id (should be LickXXX)
+lastLick = splitapply(@(ids) ids(end-1), statetrans.Id, G); % second to last action per trial
+% s = string(secondLastAct); % convert to string vector
+% maskNotLick = ~startsWith(s, "Lick") | isundefined(secondLastAct); % logical to identify which values do not start with Lick
+% idx = find(maskNotLick); % any action non-Lick?
+
+% ENSURE VARIABLES ARE THE SAME LENGTH
+%sometimes if run is terminated manually, it can end in the middle of a
+%trial such that some events (trialStart, ledOn) may have occurred but
+%others may not have happened for last trial (eg, soundOn)
+vars = {trialNum, hitSide, lastAct, trialStart, ledOn, pokeStartTrial, ...
+        soundOn, lastLick, trialEnd};  % add all variables you use
+n = cellfun(@(x) numel(x), vars); % Compute lengths (treat empty as length 0)
+minN = min(n); % Desired length = minimum
+
+if any(n ~= minN) % If already equal, nothing to do
+    % Truncate each variable to 1:minN and ensure column shape
+    for k = 1:numel(vars)
+        v = vars{k};
+        % If char matrix (M-by-N), treat rows as elements => keep first minN rows
+        if ischar(v)
+            vars{k} = v(1:minN, :);
+        else
+            % For vectors or cell arrays, take first minN elements and make column
+            vars{k} = reshape(v(1:minN), [], 1);
+        end
+    end
+    % Reassign back to named variables (in workspace of this function/script)
+    [trialNum, hitSide, lastAct, trialStart, ledOn, pokeStartTrial, ...
+     soundOn, lastLick, trialEnd] = vars{:};
+end % Now safe to create the table
+
+% CREATE TABLE
+byTrial = table(trialNum, hitSide, lastLick, lastAct, trialStart, ledOn, pokeStartTrial, soundOn, trialEnd,...
+    'VariableNames', {'num','side','lastLick','lastAct','start','ledOn','pokeStart','soundOn','end'});
+% byTrial(trialFail,:) = []; % remove trials where mouse failed to initiate trial with center poke, as identified above
+
+% CHECK that time values sequentially increase from:
+%   start-ledOn-pokeStart-soundOn-end
+A = table2array(byTrial(:,[5:9]));      % numeric/datetime-compatible assumed
+viol = any(diff(A,1,2) < 0, 2);        % true for rows that decrease somewhere
+violRows = find(viol);
+
+% SAVE INTO STRUCTURE
+beh.trial = byTrial;
+
+%% HITS
+
+% WHEN HITS
+if any(strcmp(uni,'Hit'))
+    rowsHit = find(statetrans.Id == 'Hit'); % row index for a Hit
+elseif any(strcmp(uni,'LeftHit')) || any(strcmp(uni,'RightHit'))
+    leftHit = find(statetrans.Id == 'LeftHit');
+    rightHit = find(statetrans.Id == 'RightHit');
+    rowsHit = sort([leftHit; rightHit]);
+end
+
+% EMPTY TABLE IF NO HITS
+if isempty(rowsHit)
+    hitsT = table([],string.empty(0,1),[],[],...
+        'VariableNames',{'trial','side','hits','rewLatency'});
+else
+    % TRIAL NUMBER
+    hitTrial = statetrans.Trial(rowsHit); % find the Trial # for Hits
+    if statetrans.Trial(1) == 0; hitTrial = hitTrial + 1; end % adjust for zero index
+
+    % SIDE
+    hitSide = strings(numel(rowsHit),1);  % initialize variable as string array
+    hitSide(ismember(rowsHit, leftHit)) = "left";
+    hitSide(ismember(rowsHit, rightHit)) = "right";
+    hitSide(ismissing(hitSide)) = ""; % mark unspecified as empty
+    hitSide = cellstr(hitSide); % convert to cell array of character vectors
+
+    % HIT TIME STAMP
+    hitTime = TS0(rowsHit);
+
+    % REWARD LATENCY
+    rewLatency = hitTime - pokeStartTrial(hitTrial);
+
+    hitsT = table(hitTrial,hitTime,hitSide,rewLatency,...
+        'VariableNames',{'trial','hits','side','rewLatency'});
+end
+beh.hitT = hitsT; % table 
+beh.hits = beh.hitT.hits; % time stamps for hits
+
+%% MISS
+try beh.miss = TS0(statetrans.Id == 'Miss');
+catch beh.miss = [];
+end
 
 %% INCORRECT ACTION aka NO HOLD
 try beh.noHold = TS0(statetrans.Id == 'IncorrectAction');
@@ -130,25 +217,5 @@ end
 try beh.error = TS0(statetrans.Id == 'Timeout');
 catch beh.error = [];
 end
-
-%% TRIAL END ACTION
-% Group trials and get unique trial ids
-[G, trial] = findgroups(statetrans.Trial);
-
-% For each group, take the last Id (last row within that trial)
-lastAct = splitapply(@(ids) ids(end), statetrans.Id, G);   % categorical array, one per trial
-
-% Take second to last Id (should be LickXXX)
-secondLastAct = splitapply(@(ids) ids(end-1), statetrans.Id, G); % second to last action per trial
-% s = string(secondLastAct); % convert to string vector
-% maskNotLick = ~startsWith(s, "Lick") | isundefined(secondLastAct); % logical to identify which values do not start with Lick
-% idx = find(maskNotLick); % any action non-Lick?
-
-% Return result table
-lastAct = table(trial, lastAct, secondLastAct,...
-    'VariableNames', {'trial','lastAct','lastLick'});
-lastAct(trialFail,:) = []; % remove trials where mouse failed to initiate trial with center poke, as identified above
-
-beh.lastAct = lastAct;
 
 end

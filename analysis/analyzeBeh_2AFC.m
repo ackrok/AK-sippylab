@@ -72,11 +72,19 @@ for thisMouse = 1:length(uniMouse)
         % Loop through each trial to first identify outcome
         % Possible outcomes: Hit, with either LickRight or LickLeft being
         % second to last event, also Miss, IncorrectAction (error/noHold)
-        lastAct = [beh.lastAct.lastAct]; % Last action for each trial
-        side = [beh.lastAct.lastLick]; % Second to last action for each trial
-        side = side(lastAct == 'Hit');
-        trialOutcome(a, 1) = length(find(side == "LickRight"));
-        trialOutcome(a, 2) = length(find(side == "LickLeft"));
+        try lastAct = [beh.lastAct.lastAct]; % Last action for each trial
+            side = [beh.lastAct.lastLick]; % Second to last action for each trial
+        catch lastAct = [beh.trial.lastAct]; % Pre or post-Feb 2026 data organization
+              side = [beh.trial.lastLick];
+        end
+        if any(lastAct == 'LeftHit') || any(lastAct == 'RightHit') % 2AFC
+            trialOutcome(a, 1) = length(find(lastAct == 'RightHit'));
+            trialOutcome(a, 2) = length(find(lastAct == 'LeftHit'));
+        else
+            side = side(lastAct == 'Hit')); % tone-reward tast
+            trialOutcome(a, 1) = length(find(side == "LickRight"));
+            trialOutcome(a, 2) = length(find(side == "LickLeft"));
+        end
         % counts = countcats(lastAct); % count occurence of categorical array elements by category
         % names = categories(lastAct); % returns possible names for categories
         trialOutcome(a, 3) = length(find(lastAct == 'Miss'));
@@ -98,7 +106,9 @@ for thisMouse = 1:length(uniMouse)
         iri{a} = [beh.hits(1)/adj; iri{a}]; % add delay to 1st reward
 
         % Last time stamp
-        endTime(a) = beh.trialEnd(end);
+        try endTime(a) = beh.trialEnd(end);
+        catch endTime(a) = beh.trial.end(end); 
+        end
     end
    
     % Load into output structure

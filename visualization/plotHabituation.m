@@ -3,13 +3,13 @@ if ~exist('comb','var')
     error('ERROR: run extractComb_beh script first to extract behavioral data into structure.');
 end
 
-% extract data from .csv files (bonsai output)
-tic
-filename=dir('*StateTransitions.csv');
-statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
-
-beh = extract2AFCdataAK(statetrans);
-toc
+% OR extract data from .csv files (bonsai output)
+% tic
+% filename=dir('*StateTransitions.csv');
+% statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+% 
+% beh = extract2AFCdataAK(statetrans);
+% toc
 
 %% number of rewards
 if numel(unique({comb.mouse})) ~= 1
@@ -35,17 +35,24 @@ barLbl = {'hit R','hit L','miss','noHold','other'};
 for a = 1:length(sub) % iterate over all recordings for this unique mouse ID
     beh = sub(a).beh; 
 
-    side = [beh.lastAct.lastLick];
-    side = side(beh.lastAct.lastAct == 'Hit');
-    barY(a,1) = length(find(side == "LickRight"));
-    barY(a,2) = length(find(side == "LickLeft"));
-
-    lastAct = cellstr([beh.lastAct.lastAct]);
-    if any(strcmp(cellstr([beh.lastAct.lastAct]),'LeftHit')) || ...
-        any(strcmp(cellstr([beh.lastAct.lastAct]),'RightHit'))
+    % a) extract sub-table from 'beh' structure
+    try
+        lastAct = cellstr([beh.trial.lastAct]); % last event for each trial
+        lastLick = [beh.trial.lastLick];
+    catch
+        lastAct = cellstr([beh.lastAct.lastAct]); % older organization pre-Feb 2026
+        lastLick = [beh.lastAct.lastLick];
+    end
+    % b) adjust for task structure, 2AFC vs tone-reward, extract hits
+    if any(strcmp(lastAct,'LeftHit')) || any(strcmp(lastAct,'RightHit')) % 2AFC
         barY(a,1) = numel(find(strcmp(lastAct, 'RightHit')));
         barY(a,2) = numel(find(strcmp(lastAct, 'LeftHit')));
+    else
+        side = lastLick(strcmp(lastAct, 'Hit')); % tone-reward tast
+        barY(a,1) = length(find(side == "LickRight"));
+        barY(a,2) = length(find(side == "LickLeft"));
     end
+    % c) extract miss, errors, others
     barY(a,3) = numel(find(strcmp(lastAct, 'Miss')));
     barY(a,4) = numel(find(strcmp(lastAct, 'IncorrectAction')));
     barY(a,5) = length(lastAct) - sum(barY(a,1:4));
