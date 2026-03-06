@@ -6,7 +6,8 @@ function [out] = AK_corrFP_2(comb, varargin)
 %   [out] = AK_corrFP_2(comb, win)
 %
 %   Description: This function is for running cross-correlation analysis on
-%   two continuous photometry signals using the MATLAB 'xcorr'
+%   two continuous photometry signals using the MATLAB 'xcorr'. 
+%   Note uses 2nd signal as reference.
 %
 %   INPUTS
 %   'comb' - structure with photometry data
@@ -49,7 +50,8 @@ for x = 1:length(comb) % iterate over all recordings
     fp_mat = [];
     Fs = comb(x).Fs; % sampling frequency
     fp_mat = cell2mat(comb(x).FP'); % extract photometry signal
-    fp_mat = fp_mat - nanmean(fp_mat,1); % center on zero
+    % fp_mat = fp_mat - nanmean(fp_mat,1); % center on zero
+    fp_mat = zscore(fp_mat); % z-score
     
     % Cross-correlation
     [corr_tmp, lags] = xcorr(fp_mat(:,1), fp_mat(:,2), winCorr*Fs, 'coeff'); % cross-correlation
@@ -57,20 +59,22 @@ for x = 1:length(comb) % iterate over all recordings
     % [shuff,~,~] = crosscorr(fp_sub(randperm(size(fp_sub,1)),1), fp_sub(randperm(size(fp_sub,2)),2),'NumLags',100,'NumSTD',3);
       
     % Shuffle photometry signal and repeat
-    fp_forShuff = fp_mat(:,2); % use photometry signal with 2nd index for shuffling
-    tmp_shuff = []; 
+    shuffSignal = fp_mat(:,1); % use photometry signal with 1st index for shuffling
+    shuff = []; 
     for s = 1:nShuff
-        fp_forShuff = circshift(fp_forShuff, Fs); % shift signal by 1x sampling frequency
+        % shiftby = randi(length(shuffSignal)) - 1; 
+        shiftby = Fs; 
+        shuffSignal = circshift(shuffSignal, shiftby); % shift signal by 1x sampling frequency
         % tmp_shuff(:,s) = xcorr(fp_sub(randperm(size(fp_sub,1)),1), fp_sub(randperm(size(fp_sub,2)),2), 10*Fs, 'coeff');
         % tmp_shuff(:,s) = xcorr(fp_sub(:,1), fp_sub(randperm(size(fp_sub,2)),2), 10*Fs, 'coeff');
-        tmp_shuff(:,s) = xcorr(fp_mat(:,1), fp_forShuff, winCorr*Fs, 'coeff');
+        shuff(:,s) = xcorr(fp_mat(:,1), shuffSignal, winCorr*Fs, 'coeff');
     end
 
     % Store in output cell array
     corr_byMouse{1}(:,x) = corr_tmp;       % cross-correlation
-    corr_byMouse{2}(:,x) = prctile(tmp_shuff, 5, 2); % shuffle 5th percentile
-    corr_byMouse{3}(:,x) = prctile(tmp_shuff, 50, 2); % shuffle 50th percentile
-    corr_byMouse{4}(:,x) = prctile(tmp_shuff, 95, 2); % shuffle 95th percentile
+    corr_byMouse{2}(:,x) = prctile(shuff, 5, 2); % shuffle 5th percentile
+    corr_byMouse{3}(:,x) = prctile(shuff, 50, 2); % shuffle 50th percentile
+    corr_byMouse{4}(:,x) = prctile(shuff, 95, 2); % shuffle 95th percentile
    
 end
 

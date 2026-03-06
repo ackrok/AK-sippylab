@@ -1,0 +1,108 @@
+function [out] = AK_corrFP_2(comb, varargin)
+%Cross-correlation between two photometry signals acquired during
+%dual color photometry recordings
+%
+%   [out] = AK_corrFP_2(comb)
+%   [out] = AK_corrFP_2(comb, win)
+%
+%   Description: This function is for running cross-correlation analysis on
+%   two continuous photometry signals using the MATLAB 'xcorr'. 
+%   Note uses 2nd signal as reference.
+%
+%   INPUTS
+%   'comb' - structure with photometry data
+%   'win' (optional) - window to restrict analysis to, in seconds
+%   
+%   OUTPUTS
+%   'out' - structure with analysis output
+%       - 'lags' - vector of lag indices, in seconds
+%       - 'corr' - cross-correlation between two FP signals, normalized
+%           using coeff scaling to approximate Pearson's coefficient, r
+%       - 'shuff' - table with output run on shuffled signal, includes
+%           5th, 50th, 95th percentile
+%
+%   Author: Anya Krok, December 2021
+%   Updated: Anya Krok, Decemebr 2025
+
+%% INPUTS
+switch nargin
+    case 2
+        winCorr = varargin{1};
+    case 1
+        winCorr = 5; % Window for analysis, in seconds
+end
+
+% Default is to use photometry signal with 2nd index as reference.
+% In Krok 2023 paper, rDA1m photometry signal used as reference and this
+% was beh(x).FP{2}. 
+
+nShuff = 100; % Set shuffle repeat number
+
+%% OUTPUTS
+corr_byMouse = cell(1,4); % Initiate temporary output cell array
+m = (winCorr*2*50)+1; n = length(comb); % Size of expected output
+corr_byMouse = cellfun(@(x) nan(m,n), corr_byMouse, 'UniformOutput', false);
+
+%% RUN ANALYSIS ON ALL RECORDINGS
+for x = 1:length(comb) % iterate over all recordings
+    
+    % Extract signals and center
+    fp_mat = [];
+    Fs = comb(x).Fs; % sampling frequency
+    fp_mat = cell2mat(comb(x).FP'); % extract photometry signal
+    % fp_mat = fp_mat - nanmean(fp_mat,1); % center on zero
+    fp_mat = zscore(fp_mat); % z-score
+    
+    % Cross-correlation
+    [corr_tmp, lags] = xcorr(fp_mat(:,1), fp_mat(:,2), winCorr*Fs, 'coeff'); % cross-correlation
+    % [xcf, lags, bounds] = crosscorr(fp_sub(:,1), fp_sub(:,2),'NumLags',100,'NumSTD',3);
+    % [shuff,~,~] = crosscorr(fp_sub(randperm(size(fp_sub,1)),1), fp_sub(randperm(size(fp_sub,2)),2),'NumLags',100,'NumSTD',3);
+      
+    % Shuffle photometry signal and repeat
+    shuffSignal = fp_mat(:,1); % use photometry signal with 1st index for shuffling
+    shuff = []; 
+    for s = 1:nShuff
+        % shiftby = randi(length(shuffSignal)) - 1; 
+        shiftby = Fs; 
+        shuffSignal = circshift(shuffSignal, shiftby); % shift signal by 1x sampling frequency
+        % tmp_shuff(:,s) = xcorr(fp_sub(randperm(size(fp_sub,1)),1), fp_sub(randperm(size(fp_sub,2)),2), 10*Fs, 'coeff');
+        % tmp_shuff(:,s) = xcorr(fp_sub(:,1), fp_sub(randperm(size(fp_sub,2)),2), 10*Fs, 'coeff');
+        shuff(:,s) = xcorr(fp_mat(:,1), shuffSignal, winCorr*Fs, 'coeff');
+    end
+
+    % Store in output cell array
+    corr_byMouse{1}(:,x) = corr_tmp;       % cross-correlation
+    corr_byMouse{2}(:,x) = prctile(shuff, 5, 2); % shuffle 5th percentile
+    corr_byMouse{3}(:,x) = prctile(shuff, 50, 2); % shuffle 50th percentile
+    corr_byMouse{4}(:,x) = prctile(shuff, 95, 2); % shuffle 95th percentile
+   
+end
+
+%% AVERAGE ACROSS ALL RECORDINGS FOR ONE ANIMAL SUCH THAT N = X mice
+uni = unique({comb.mouse}); 
+nAn = length(uni); % number of unique animal IDs
+
+corr_byUni = cell(1,4); % Initiate temporary output cell array
+m = (winCorr*2*50)+1; n = length(comb); % Size of expected output
+corr_byUni = cellfun(@(x) nan(m,n), corr_byUni, 'UniformOutput', false);
+
+for x = 1:nAn
+    idx = strcmp({comb.mouse},uni{x}); % match animal ID to recordings
+    for b = 1:4 % iterate over actual output and shuffled output
+        pull = corr_byMouse{b}(:,idx); % extract output for all matching recordings
+        base = pull(1:find(lags./Fs == -2),:); % baseline [-5 -2]
+        base = nanmean(base,1); % baseline
+        pull = pull - base;
+        corr_byUni{b}(:,x) = nanmean(pull,2); % average across all recordings for this animal
+    end
+end
+
+%% OUTPUT
+out = struct;
+out.lags = lags(:)/Fs;
+out.corr = corr_byUni{1};
+out.shuff5 = corr_byUni{2};
+out.shuff50 = corr_byUni{3};
+out.shuff95 = corr_byUni{4};
+
+end

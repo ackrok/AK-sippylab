@@ -7,7 +7,7 @@
 %% FFT with pwelch
 out = struct;
 for a = 1:length(comb)
-    b = 1; 
+    b = 2; 
     signal = comb(a).FP{b};  % signal
     Fs = comb(a).Fs;         % sampling frequency, Hz
     params.winSec = 10; params.fmax = 15; % parameters
@@ -16,6 +16,7 @@ for a = 1:length(comb)
     out(a).P = P; out(a).T = T; out(a).F = F;
 end
 
+%% Band power
 band = [1 3]; % Hz
 win1 = [0 10]; % baseline window pre-injection
 win2 = [12 15]; % post-injection window
@@ -69,10 +70,10 @@ clr(2:2:end, :) = repmat([1 0 0], numel(2:2:size(winPower,1)), 1);
 bb.CData = clr;
 
 %% Plot spectrogram (for ONE recording)
-% a = 4;
-% figure;
-% imagesc(out(a).T, out(a).F, 10*log10(out(a).P));
-% axis xy;
-% xlabel('time (min)'); ylabel('frequency (Hz)');
-% title(sprintf('PSD'));
-% colorbar;
+a = 3;
+figure;
+imagesc(out(a).T, out(a).F, 10*log10(out(a).P));
+axis xy;
+xlabel('time (min)'); ylabel('frequency (Hz)');
+title(sprintf('PSD'));
+colorbar;
