@@ -2,8 +2,8 @@ function comb = extractComb(varargin)
 %%Extract processed photometry data from multiple recordings into a single
 %%structure for further analysis
 %
-% [comb] = extractComb()
-% [comb] = extractComb(fName,fPath)
+% [comb] = extractComb();
+% [comb] = extractComb(fName,fPath);
 %
 % Description: Extract processed data from multiple recording 
 % files into a larger structure to be used for further analysis

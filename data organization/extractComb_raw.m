@@ -2,8 +2,8 @@ function comb = extractComb_raw(varargin)
 %%Extract raw photometry data from multiple recordings into a single
 %%structure for FFT analysis with function getFft
 %
-% [comb] = extractComb_raw()
-% [comb] = extractComb_raw(fName,fPath)
+% [comb] = extractComb_raw();
+% [comb] = extractComb_raw(fName,fPath);
 %
 % Description: Extract raw photometry signal from multiple recording files 
 % into a larger structure to be used for FFT analysis with function getFft

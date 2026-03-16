@@ -26,9 +26,52 @@ switch nargin
         statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
 end
 
+%% output variable
+beh = struct;
+
+%% table checks
+
+% Adjustments if data collection ended in the middle of a trial:
+% note that 2AFC trials should include ITI, LEDon if valid.
+
+trials = unique(statetrans.Trial,'stable');    % unique trial identifiers, stable order
+isITI = strcmp(string(statetrans.Id),'ITI');   % logical mask for ITI rows
+isLED = strcmp(string(statetrans.Id),'LEDon'); % logical mask for LEDon rows
+
+% Remove last row if trial ended during ITI
 if statetrans.Id(end) == "ITI"
     statetrans(end,:) = [];
 end
+
+% For each unique trial, find the row index of the first ITI occurrence and
+% the first LEDon occurrence
+idxITI = NaN(numel(trials),1); % initialize vector of NaNs
+idxLED = NaN(numel(trials),1); % initialize vector of NaNs
+for k = 1:numel(trials)
+    r = find(isITI & statetrans.Trial==trials(k), 1, 'first');
+    if ~isempty(r)
+        idxITI(k) = r;
+    end
+    r2 = find(isLED & statetrans.Trial==trials(k), 1, 'first');
+    if ~isempty(r2)
+        idxLED(k) = r2;
+    end
+end
+
+% If some trials do not include LEDon, remove those trials from table. 
+% Note that if all NaN then will keep all data.
+if any(isnan(idxLED)) && ~all(isnan(idxLED))
+    nanTrials = trials(isnan(idxLED)); % trial number for trial without LEDon
+    nanRows = ismember(statetrans.Trial, nanTrials); % row indices corresponding to trial
+    statetrans(nanRows, :) = [];  % remove trial from table
+    trials = unique(statetrans.Trial, 'stable'); % update unique trials after filtering
+end
+
+%% extract variables
+uni = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
+nTrial = max(statetrans.Trial)+1; % total number of trials
+[G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
+if trialNum(1) == 0; trialNum = trialNum+1; end % adjust for zero index 
 
 %% time stamps
 compTime = [statetrans.TimeOfDay]./1e3; % computer time
@@ -36,13 +79,6 @@ compTime_0 = compTime - compTime(1);
 elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
 elapTime_0 = elapTime - elapTime(1);
 TS0 = elapTime_0(:); % use elapsed time **CAN CHANGE**
-
-%% 
-uni = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
-nTrial = max(statetrans.Trial)+1; % total number of trials
-trials = unique(statetrans.Trial); % unique events
-[G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
-if trialNum(1) == 0; trialNum = trialNum+1; end % adjust for zero index 
 
 %% LICK: all lick left and all lick rights
 try beh.lickLeft = TS0(statetrans.Id == 'LickLeft');

@@ -2,8 +2,8 @@ function comb = extractComb_beh(varargin)
 %%Extract behavioral data from multiple recordings into a single
 %%structure for further analysis
 %
-% [comb] = extractComb_beh()
-% [comb] = extractComb_beh(comb)
+% [comb] = extractComb_beh();
+% [comb] = extractComb_beh(comb);
 %
 % Description: Extract behavioral data from multiple recording files into 
 % a larger structure to be used for further analysis. Only extracts
