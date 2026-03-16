@@ -1,4 +1,25 @@
+% Process data from Neurophotometrics and Bonsai output into .mat data file
+%
+% processDataSippy
+%
+% INPUT
+% (1) Select photometry.csv file location
+%       - direct to folder with behavior and/or photometry data to analyze
+%
+% (2) Check recording identifyers
+%       - will auto-populate with mouseID and recording date based on 
+%       file folder name
+%
+% (3) Select signal in each photometry channel
+%       - note separate pop-up windows for green and red channels
+%
+% OUTPUT
+% 'data' structure is saved as .mat in same folder as .csv file(s)
+%
+% Written by: Anya Krok, July 2026
+%
 
+%%o
 % selectDir = uigetdir('Select Directory with Photometry files'); % pop-up window to select file directory
 [~,filePath] = uigetfile('Photometry*.csv','Select photometry CSV file','MultiSelect','off');
 cd(filePath);  % open file directory
@@ -19,28 +40,28 @@ dayName = sprintf('%s-%s',mouse,date);
 
 %% extract photometry data
 tic
-FramesFile=dir('Frames*.csv'); 
-Frames=table2array(GetBonsai_PhotometryFrames(FramesFile.name));
+fileFrames = dir('Frames*.csv'); 
+frames = table2array(GetBonsai_PhotometryFrames(fileFrames.name));
 
-File=dir('*Photometry_*.csv');
-RawTable=GetBonsai_Photometry(File.name);
-pull = find(~isnan(table2array(RawTable(1, 5:size(RawTable,2))))); % identify colums R0 - G15 that include photometry values
-PhotometryTable=table2array(RawTable(:,[1:3, pull+4])); % extract data colums that have photometry signal
-PhotometryTable(1:length(Frames),2)=Frames(:,2);
+filePhoto = dir('*Photometry_*.csv');
+photoT = GetBonsai_Photometry(filePhoto.name);
+pull   = find(~isnan(table2array(photoT(1, 5:size(photoT,2))))); % identify colums R0 - G15 that include photometry values
+photo = table2array(photoT(:,[1:3, pull+4])); % extract data colums that have photometry signal
+photo(1:length(frames),2)=frames(:,2);
 toc
 
 %% G0 - red 
 % R1 - green
 clearvars signalRaw
 ledState = 2; % which LED state we are drawing from, ledState 2 is 470nm
-if any(PhotometryTable(:,3) == ledState)
+if any(photo(:,3) == ledState)
     % signalRaw_grn = PhotometryTable(PhotometryTable(:,3)==ledState,[2,5]); 
-    signalRaw{1} = PhotometryTable(PhotometryTable(:,3)==ledState,[2,5]); 
+    signalRaw{1} = photo(photo(:,3)==ledState,[2,5]); 
 end
 ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
-if any(PhotometryTable(:,3) == ledState)
+if any(photo(:,3) == ledState)
     % signalRaw_red = PhotometryTable(PhotometryTable(:,3)==ledState,[2,4]); 
-    signalRaw{2} = PhotometryTable(PhotometryTable(:,3)==ledState,[2,4]); 
+    signalRaw{2} = photo(photo(:,3)==ledState,[2,4]); 
 end
 
 %% create data structure
@@ -49,7 +70,7 @@ data.ID = dayName; data.mouse = mouse; data.date = date;
 opts = {'DA','5-HT','NE','GCaMP'};
 choice = menu('Select photometry signal for green channel',opts);
 data.acq.FPnames = {opts{choice}};
-if any(PhotometryTable(:,3) == 4) % if used 565nm 
+if any(photo(:,3) == 4) % if used 565nm 
     opts = {'rDA','RCaMP'};
     choice = menu('Select photometry signal for red channel',opts);
     data.acq.FPnames{2} = opts{choice};

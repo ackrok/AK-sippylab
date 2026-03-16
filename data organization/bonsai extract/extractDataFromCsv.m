@@ -23,25 +23,31 @@ if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
     % identify colums R0 - G15 that include photometry values
     idx = find(~isnan(table2array(photoT(1, 5:size(photoT,2))))); 
     % extract data colums that have photometry signal
-    photoM = table2array(photoT(:,[1:3, idx+4])); 
-    photoM(1:length(frames),2)=frames(:,2);
+    photo = table2array(photoT(:,[1:3, idx+4])); 
+    photo(1:length(frames),2)=frames(:,2);
     
     % R0 - red 
     % R1 - green
-    ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
-    signalRaw_red = photoM(photoM(:,3)==ledState,[2,4]); 
+    signalRaw = {};
     ledState = 2; % which LED state we are drawing from, ledState 2 is 470nm
-    signalRaw_grn = photoM(photoM(:,3)==ledState,[2,5]); 
+    if any(photo(:,3) == ledState)
+        signalRaw{1} = photo(photo(:,3)==ledState,[2,5]); 
+    end
+    ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
+    if any(photo(:,3) == ledState)
+        signalRaw{2} = photo(photo(:,3)==ledState,[2,4]); 
+    end
 
     % store data 
     data.acq.FPnames = {'5-HT','rDA'};
-    data.acq.nFPchan = 2;
-    cutLength = floor(size(signalRaw_grn,1)/300)*300;
-    signalRaw_grn = signalRaw_grn(1:cutLength,:);
-    signalRaw_red = signalRaw_red(1:cutLength,:);
-    data.acq.time{1} = signalRaw_grn(:,1); data.acq.time{2} = signalRaw_red(:,1);
-    data.acq.FP{1} = signalRaw_grn(:,2); data.acq.FP{2} = signalRaw_red(:,2);
+    data.acq.nFPchan = length(signalRaw);
+    cutLength = floor(size(signalRaw{1},1)/300)*300;
+    for ii = 1:data.acq.nFPchan
+        data.acq.time{ii} = signalRaw{ii}(1:cutLength, 1);
+        data.acq.FP{ii} = signalRaw{ii}(1:cutLength, 2);
+    end
     
+    % compute acquisition rate
     fiberTS = data.acq.time{1}/1e3;  %in seconds - not starting at zero
     fiberTriggerBin = ((fiberTS(end-1,1)-fiberTS(1,1))/...
                         (length(fiberTS)-1)); %neurophotometrics acquisition rate
@@ -71,8 +77,9 @@ if ~isempty(statetrans) && istable(statetrans)
         beh = extract2AFCdataAK(statetrans);
     end
     data.beh = beh;
-    data.acq.statetrans = statetrans;
+    data.acq.beh = statetrans;
     fprintf('Behavioral data processed.\n');
 else
+    data.beh = [];
     fprintf('Behavioral data NOT processed.\n');
 end
