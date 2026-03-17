@@ -10,7 +10,9 @@
 % (2) Select signal in each photometry channel
 %       *note two separate pop-up windows for green and red channels*
 %
-% (3) Check recording identifyers for EACH recording
+% (3) (optional) Select folder to save .mat files for cohort
+%
+% (4) Check recording identifyers for EACH recording
 %
 %
 % OUTPUT
@@ -31,6 +33,12 @@ sigGreen = opts{choice};
 opts = {'rDA','RCaMP'};
 choice = menu('Select photometry signal for red channel',opts);
 sigRed = opts{choice};
+
+opts = {'yes','no'};
+saveCohort = menu('Save to cohort folder?',opts);
+if saveCohort == 1
+    [cohortFilePath] = uigetdir([],'Select Cohort Folder'); 
+end
 
 %%
 for a = 1:length(allPath)
@@ -117,8 +125,8 @@ for a = 1:length(allPath)
     saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
     save(saveName,'data');
     fprintf(' %s: SAVED data.mat \n', data.ID);
-
-    % cohortFilePath = '/Volumes/sippylab/Data/Jaden Tauber/cohort2_5HTDA_ketamine/open field/';
-    % save(fullfile(cohortFilePath,saveName),'data');
+    if saveCohort == 1
+        save(fullfile(cohortFilePath,saveName),'data'); % save to cohort folder
+    end
     toc
 end

@@ -212,6 +212,8 @@ elseif any(strcmp(uni,'LeftHit')) || any(strcmp(uni,'RightHit'))
     leftHit = find(statetrans.Id == 'LeftHit');
     rightHit = find(statetrans.Id == 'RightHit');
     rowsHit = sort([leftHit; rightHit]);
+else
+    rowsHit = [];
 end
 
 % EMPTY TABLE IF NO HITS
