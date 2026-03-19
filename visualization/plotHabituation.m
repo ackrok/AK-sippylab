@@ -24,7 +24,7 @@ else
 end
 
 %%
-fig = figure;
+fig = figure; theme(fig,'light');
 spX = 2; spY = 2;
 
 %% (1) outcome by trial
@@ -66,9 +66,11 @@ xlabel('recording date'); xticklabels({sub.date});
 ylabel('# trials'); sp(spNum).YLim = [0 255];
 str = sprintf('%s - total #hits per #trials \n',sub(1).mouse);
 for a = 1:length(sub)
-    str = [str,sprintf('(%d) %d/%d.', a, sum(barY(a,1:2)), sum(barY(a,:)))];
+    nhit = sum(barY(a,1:2)); ntr = sum(barY(a,:));
+    str = [str,sprintf('(%d)%d/%d=%1.1f.', a, nhit, ntr, 100*nhit/ntr)];
 end
 title(str);
+fprintf('%s \n',str);
 
 %% (2) lick vector to reward
 spNum = 2;
