@@ -29,19 +29,22 @@ xHi = centerPixel(1) + centerPixel(3);
 yLo = centerPixel(2);
 yHi = centerPixel(2) + centerPixel(4);
 
-% convert to size
+% calculate scaling based on pixel width of box
 answer = inputdlg({'Pixel Width of Box','Known width in cm'},...
         'Specify known distance',[1 20],{num2str(boxPixel),'40'});
 pix = str2double(answer{1});
 cm = str2double(answer{2});
 scale = cm/pix;
+
+% output structure
 calibrate.filePath = filePath;
 calibrate.fileName = fileName;
 calibrate.frameRate = obj.FrameRate;
-% calibrate.video = obj; % dont save large file
-calibrate.image = im; % .png single frame image
-calibrate.size = sz;
-calibrate.centerLoc = {xLo, yLo; xHi, yHi};
-calibrate.Units = 'centimeters';
-calibrate.scale = scale;
+% calibrate.video = obj;
+calibrate.image  = im; % .png single frame image
+calibrate.size   = sz; % size of image, in pixels
+calibrate.center = [xLo, yLo; xHi, yHi]; % corners of center box, in pixels
+calibrate.width  = pix; % width, in pixels
+calibrate.scale  = scale; % scaling factor
+calibrate.units  = 'cm';
 save('OFCalibration.mat','calibrate');
