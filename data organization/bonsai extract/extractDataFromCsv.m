@@ -71,13 +71,12 @@ end
 
 %% extract behavior data
 if ~isempty(statetrans) && istable(statetrans)
-    if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
-        beh = alignBehTStoPhotoTS(data, statetrans); % frame relative to photometry signal    
-    else
-        beh = extract2AFCdataAK(statetrans);
-    end
+    beh = extract2AFCdataAK(statetrans);
     data.beh = beh;
     data.acq.beh = statetrans;
+    if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
+        data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
+    end
     fprintf('Behavioral data processed.\n');
 else
     data.beh = [];

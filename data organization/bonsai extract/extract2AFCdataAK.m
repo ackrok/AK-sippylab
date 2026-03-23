@@ -3,28 +3,66 @@ function beh = extract2AFCdataAK(varargin)
 % Task: 2AFC
 %
 % beh = extract2AFCdataAK(statetrans)
-% beh = extract2AFCdataAK(filePath, fileNames)
+% beh = extract2AFCdataAK(statetrans, 'photo')
 %
 % INPUT
-% 'statetrans' - table made from StateTransitions.csv using function 
-% statetrans = GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+% 'statetrans' - table made from StateTransitions.csv
+%       % How to extract into workspace?
+%       filePath = uigetdir('Select Folder with StateTransitions.csv File');
+%       cd(filePath)
+%       fileName = dir('*StateTransitions.csv');
+%       statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+% 'photo' - logical for photometry
+%       For experiments with behavioral and photometry, then use fxn
+%       'firstFrameBeforeEventIndex' to convert time stamps to "samples"
+%       for ease of alignment with photometry signal.
+%       fpTS = firstFrameBeforeEventIndex(compTimeStamp, timeVector)
+%       hitTSphoto = firstFrameBeforeEventIndex(beh.hits, data.acq.time{1});
 %
 % OUTPUT
 % 'beh' - structure with extracted behavioral data
+%       Note that all time stamps are in seconds and are elapsed time,
+%       unless photometry then time stamps are in computer time.
 %
 % Written by Anya Krok, Dec 2025
 % Updated by Anya Krok, Feb 2026 to organize data in tables based on Trial
 % and Hits
+% Updated by Anya Krok, Mar 2026 to add additional error outcomes
+%   beh.miss - no response within reward window
+%   beh.error - incorrect action (eg, soundOnLeft but lickRight)
+%   beh.noHold - does not maintain hold (eg, pokeCenter but NO soundOn)
 
 switch nargin
     case 1
         statetrans = varargin{1}; % assign the input table to statetrans
+        % time stamps in elapsed time:
+        elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
+        elapTime_0 = elapTime - elapTime(1);
+        TS0 = elapTime_0(:);
+
     case 2
-        filePath = varargin{1}; % fileNames = varargin{2};
-        cd(filePath)
-        filename=dir('*StateTransitions.csv');
-        statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+        statetrans = varargin{1}; 
+        isPhoto = varargin{2};
+        if strcmpi(isPhoto,'photo')
+            compTime = [statetrans.TimeOfDay]; % computer time
+            TS0 = compTime(:);
+        else
+            elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
+            elapTime_0 = elapTime - elapTime(1);
+            TS0 = elapTime_0(:);
+        end
+        % For experiments with behavioral and photometry, then use fxn
+        % 'firstFrameBeforeEventIndex' to convert time stamps to "samples"
+        % for ease of alignment with photometry signal.
+        % Example:
 end
+
+%% extract variables
+uni    = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
+ids    = string(statetrans.Id); % convert to string for easier comparison
+nTrial = max(statetrans.Trial)+1; % total number of trials
+[G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
+if trialNum(1) == 0; trialNum = trialNum+1; end % adjust for zero index 
 
 %% output variable
 beh = struct;
@@ -70,33 +108,20 @@ if statetrans.Id(end) == "ITI"
     trials = unique(statetrans.Trial, 'stable'); % update unique trials
 end
 
-%% extract variables
-uni = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
-nTrial = max(statetrans.Trial)+1; % total number of trials
-[G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
-if trialNum(1) == 0; trialNum = trialNum+1; end % adjust for zero index 
-
-%% time stamps
-compTime = [statetrans.TimeOfDay]./1e3; % computer time
-compTime_0 = compTime - compTime(1);
-elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
-elapTime_0 = elapTime - elapTime(1);
-TS0 = elapTime_0(:); % use elapsed time **CAN CHANGE**
-
 %% LICK: all lick left and all lick rights
-try beh.lickLeft = TS0(statetrans.Id == 'LickLeft');
-catch beh.lickLeft = [];
+try beh.lickLeft = TS0(ids == 'LickLeft');
+catch, beh.lickLeft = [];
 end
-try beh.lickRight = TS0(statetrans.Id == 'LickRight');
-catch beh.lickRight = [];
+try beh.lickRight = TS0(ids == 'LickRight');
+catch, beh.lickRight = [];
 end
-try beh.lickCenter = TS0(statetrans.Id == 'LickCenter');
-catch beh.lickCenter = [];
+try beh.pokeCenter = TS0(ids == 'LickCenter');
+catch, beh.pokeCenter = [];
 end
 
 %% TRIAL TABLE
 % TRIAL START
-trialStart = TS0(statetrans.Id == 'ITI');
+trialStart = TS0(ids == 'ITI');
 
 % TRIAL END
 idx = nan(nTrial,1);
@@ -108,46 +133,45 @@ trialEnd = TS0(idx);
 % LED ON
 ledOn = nan(length(trialStart),1);
 if any(strcmp(uni,'LEDon'))
-    ledOn = TS0(statetrans.Id == 'LEDon');
+    ledOn = TS0(ids == 'LEDon');
 end
 
 % LICK to START TRIAL
 % Identify row index for first LickCenter for each unique Trial
-pokeCenter_firstInTrial = nan(size(trials));
+firstPokeIdx = nan(size(trials));
 for ii = 1:numel(trials)
     rows = find(statetrans.Trial == trials(ii));
     if isempty(rows); continue; end
     if any(strcmp(uni,'LEDon')) % if LEDon exists
         % then consider only rows strictly after LEDon event
-        ids = string(statetrans.Id(rows)); % Ids for this trial only
-        isLed = contains(ids,"LEDon",'IgnoreCase',true);
+        events = string(ids(rows)); % Ids for this trial only
+        isLed = contains(events,"LEDon",'IgnoreCase',true);
         idxLed = find(isLed, 1, 'first'); % row relative to this trial only
         candidateRows = rows(rows > rows(idxLed));
     else
         candidateRows = rows; % else, fallback to whole trial
     end
-    candIds = string(statetrans.Id(candidateRows));
+    candIds = string(ids(candidateRows));
     k = find(candIds == "LickCenter", 1, 'first');
     if ~isempty(k)
-        pokeCenter_firstInTrial(ii) = candidateRows(k);
+        firstPokeIdx(ii) = candidateRows(k);
     end
 end
-trialFail = find(isnan(pokeCenter_firstInTrial)); % identify any trials that were not initiated
-pokeCenter_firstInTrial(trialFail) = [];
-try pokeStartTrial = TS0(pokeCenter_firstInTrial);
-catch pokeStartTrial = [];
+trialNoStart = isnan(firstPokeIdx); % identify any trials that were not initiated
+firstPokeIdx(trialNoStart) = [];
+try firstPoke = TS0(firstPokeIdx);
+catch, firstPoke = [];
 end
+trials = setdiff(trials, trials(trialNoStart)); % exclude not-initiated trials
 
 % SOUND ON and SIDE
 soundOn = nan(length(trialStart),1); % initialize variable as NaN array
 hitSide = strings(numel(trialStart),1);  % initialize variable as string array
 if any(strcmp(uni,'SoundOnLeft')) || any(strcmp(uni,'SoundOnRight'))
-    soundOn = sort([TS0(statetrans.Id == 'SoundOnLeft'); TS0(statetrans.Id == 'SoundOnRight')]);
+    soundOn = sort([TS0(strcmpi(ids,'SoundOnLeft')); TS0(strcmpi(ids,'SoundOnRight'))]);
 
-    isRightTrial = splitapply(@(ids) any(ids == "SoundOnRight"), ...
-        string(statetrans.Id(:)), G); % return logical if for given trial, there is sound on right
-    isLeftTrial  = splitapply(@(ids) any(ids == "SoundOnLeft"), ...
-        string(statetrans.Id(:)), G); % return logical if for given trial, there is sound on left
+    isRightTrial = splitapply(@(x) any(strcmpi(x,'SoundOnRight')), ids, G); % for each trial, does soundRight occur
+    isLeftTrial  = splitapply(@(x) any(strcmpi(x,'SoundOnLeft')),  ids, G); % for each trial, does soundLeft occur
     hitSide(isRightTrial) = "right"; % assign by logical index
     hitSide(isLeftTrial)  = "left"; % assign by logical index
     hitSide(~(isRightTrial | isLeftTrial)) = ""; % mark unspecified as empty
@@ -155,10 +179,10 @@ if any(strcmp(uni,'SoundOnLeft')) || any(strcmp(uni,'SoundOnRight'))
 end
 
 % For each group, take the last Id (last row within that trial)
-lastAct = splitapply(@(ids) ids(end), statetrans.Id, G);   % categorical array, one per trial
+lastAct = splitapply(@(ids) ids(end), ids, G);   % categorical array, one per trial
 
 % Take second to last Id (should be LickXXX)
-lastLick = splitapply(@(ids) ids(end-1), statetrans.Id, G); % second to last action per trial
+lastLick = splitapply(@(ids) ids(end-1), ids, G); % second to last action per trial
 % s = string(secondLastAct); % convert to string vector
 % maskNotLick = ~startsWith(s, "Lick") | isundefined(secondLastAct); % logical to identify which values do not start with Lick
 % idx = find(maskNotLick); % any action non-Lick?
@@ -167,7 +191,7 @@ lastLick = splitapply(@(ids) ids(end-1), statetrans.Id, G); % second to last act
 %sometimes if run is terminated manually, it can end in the middle of a
 %trial such that some events (trialStart, ledOn) may have occurred but
 %others may not have happened for last trial (eg, soundOn)
-vars = {trialNum, hitSide, lastAct, trialStart, ledOn, pokeStartTrial, ...
+vars = {trialNum, hitSide, lastAct, trialStart, ledOn, firstPoke, ...
         soundOn, lastLick, trialEnd};  % add all variables you use
 n = cellfun(@(x) numel(x), vars); % Compute lengths (treat empty as length 0)
 minN = min(n); % Desired length = minimum
@@ -185,20 +209,20 @@ if any(n ~= minN) % If already equal, nothing to do
         end
     end
     % Reassign back to named variables (in workspace of this function/script)
-    [trialNum, hitSide, lastAct, trialStart, ledOn, pokeStartTrial, ...
+    [trialNum, hitSide, lastAct, trialStart, ledOn, firstPoke, ...
      soundOn, lastLick, trialEnd] = vars{:};
 end % Now safe to create the table
 
 % CREATE TABLE
-byTrial = table(trialNum, hitSide, lastLick, lastAct, trialStart, ledOn, pokeStartTrial, soundOn, trialEnd,...
-    'VariableNames', {'num','side','lastLick','lastAct','start','ledOn','pokeStart','soundOn','end'});
+byTrial = table(trialNum, hitSide, lastLick, lastAct, trialStart, ledOn, firstPoke, soundOn, trialEnd,...
+    'VariableNames', {'num','side','lastLick','lastAct','start','ledOn','firstPoke','soundOn','end'});
 % byTrial(trialFail,:) = []; % remove trials where mouse failed to initiate trial with center poke, as identified above
 
 % CHECK that time values sequentially increase from:
 %   start-ledOn-pokeStart-soundOn-end
 A = table2array(byTrial(:,[5:9]));      % numeric/datetime-compatible assumed
 viol = any(diff(A,1,2) < 0, 2);        % true for rows that decrease somewhere
-violRows = find(viol);
+% violRows = find(viol);
 
 % SAVE INTO STRUCTURE
 beh.trial = byTrial;
@@ -207,10 +231,10 @@ beh.trial = byTrial;
 
 % WHEN HITS
 if any(strcmp(uni,'Hit'))
-    rowsHit = find(statetrans.Id == 'Hit'); % row index for a Hit
+    rowsHit = find(strcmpi(ids, 'Hit')); % row index for a Hit
 elseif any(strcmp(uni,'LeftHit')) || any(strcmp(uni,'RightHit'))
-    leftHit = find(statetrans.Id == 'LeftHit');
-    rightHit = find(statetrans.Id == 'RightHit');
+    leftHit = find(strcmpi(ids, 'LeftHit'));
+    rightHit = find(strcmpi(ids, 'RightHit'));
     rowsHit = sort([leftHit; rightHit]);
 else
     rowsHit = [];
@@ -236,7 +260,7 @@ else
     hitTime = TS0(rowsHit);
 
     % REWARD LATENCY
-    rewLatency = hitTime - pokeStartTrial(hitTrial);
+    rewLatency = hitTime - firstPoke(hitTrial);
 
     hitsT = table(hitTrial,hitTime,hitSide,rewLatency,...
         'VariableNames',{'trial','hits','side','rewLatency'});
@@ -244,19 +268,51 @@ end
 beh.hitT = hitsT; % table 
 beh.hits = beh.hitT.hits; % time stamps for hits
 
+%% ABORT HOLD
+% Example: LEDon then mouse initiates a center hold but does NOT maintain 
+%   hold for specified duration (eg, 200ms).
+% Note: exclude failed-to-initiate trials where mouse does not start center
+%   hold, as captured by 'trialFail' variable.
+beh.abort = nan(numel(trials),1);
+try 
+    isSoundEvent = strcmpi(ids,'SoundOnLeft') | strcmpi(ids,'SoundOnRight'); % rows that are sound events (case-insensitive)
+    trialSound  = unique(statetrans.Trial(isSoundEvent)); % trials that have sound events
+    trialNoSound = setdiff(trials, trialSound); % returns trials that do NOT have sound events
+    for ii = 1:numel(trialNoSound)
+        mask = (statetrans.Trial == trialNoSound(ii)) & strcmpi(ids,'LickCenter');
+        if any(mask)
+            beh.abort(ii,1) = TS0(find(mask, 1, 'last')); % record the timestamp of the last lick event
+        end
+    end
+    if all(isnan(beh.abort)); beh.abort = []; end
+catch, beh.abort = [];
+end
+
 %% MISS
-try beh.miss = TS0(statetrans.Id == 'Miss');
-catch beh.miss = [];
+% Example: soundOnLeft then does NOT lickLeft OR lickRight within reward window. 
+% Different from error/incorrectAction as detailed below, as mouse did not
+%   provide any response rather than performed an incorrect response.
+try beh.miss = TS0(strcmpi(ids,'miss'));
+    % % Alternatively, can do:
+    % beh.miss = beh.trial.end(strcmpi(string(beh.trial.lastAct),'Miss'));
+catch, beh.miss = [];
 end
 
-%% INCORRECT ACTION aka NO HOLD
-try beh.noHold = TS0(statetrans.Id == 'IncorrectAction');
-catch beh.noHold = [];
-end
-
-%% TIMEOUT aka ERROR
-try beh.error = TS0(statetrans.Id == 'Timeout');
-catch beh.error = [];
+%% INCORRECT ACTION
+% Example: soundOnLeft but only lickRight within reward window.
+% If this occurs during training will have a 'Timeout' period of 3 sec as a
+%   punishment, in addition to usual ITI.
+% Note that multiple 'IncorrectAction' may occur within given trial, but as
+%   long as mouse completes center-hold then correctly collects reward
+%   as directed by sound then can still have Hit trial. 
+try 
+    % beh.error = TS0(statetrans.Id == 'IncorrectAction'); 
+    % % Changed because trials can have multiple IncorrectActions but only 
+    % % want time stamp of last occurence.
+    % % Instead for trial where lastAct is incorrectAction return trial
+    % % end time, which is same as last occurrence.
+    beh.error = beh.trial.end(strcmpi(string(beh.trial.lastAct),'IncorrectAction'));
+catch, beh.error = [];
 end
 
 end

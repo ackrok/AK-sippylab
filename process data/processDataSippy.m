@@ -102,16 +102,15 @@ data.gen.params = params;
 %% extract behavior data
 % filename = 'StateTransitions.csv';
 % behaviorFile = extractLickData(filename, 1); % for non-habituation data
-% beh = extract2AFCdataFun(behaviorFile, dayName, 1);
 % beh.LR_R = beh.LR_R(:); beh.pokeRate = beh.pokeRate(:); beh.rewLatency = beh.rewLatency(:); % make column vectors
 
 % align time stamps for behavioral events (hits) to photometry time stamps
 try 
-    filename=dir('*StateTransitions.csv');
-    statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
-    beh = alignBehTStoPhotoTS(data, statetrans); % frame relative to photometry signal
-    
-    data.beh = beh;
+    fileName = dir('*StateTransitions.csv');
+    statetrans = GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+    beh = extract2AFCdataAK(statetrans, 'photo');
+    data.beh = beh; 
+    data = alignBehTStoPhotoTS(data, statetrans); % frame relative to photometry signal
     data.acq.beh = statetrans;
 catch
     fprintf('No behavior data file found. Proceeding without behavioral data.\n');
@@ -121,8 +120,8 @@ end
 %% SAVE
 saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
 save(fullfile(filePath,saveName),'data');
-%filePathCohort = 'R:\sippylab\Data\Jaden Tauber\cohort1_5HTDA_ketamine';
-%save(fullfile(filePathCohort,saveName),'data');
+filePathCohort = '/Volumes/sippylab/Data/Jaden Tauber/cohort1b_NAc_5HTDA/';
+save(fullfile(filePathCohort,saveName),'data');
 fprintf('SAVED %s \n',saveName);
 
 %% PLOT RW FP
