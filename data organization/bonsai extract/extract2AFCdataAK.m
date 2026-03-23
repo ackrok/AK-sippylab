@@ -117,11 +117,12 @@ end
 % end
 
 %% re-extract given updated statetrans
+clearvars -except statetrans TS0
 trials = unique(statetrans.Trial, 'stable'); % update unique trials
 uni    = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
 ids    = string(statetrans.Id); % convert to string for easier comparison
 G      = findgroups(statetrans.Trial); % group trials and get unique trial ids
-trialNum = 1:numel(trials);
+trialNum = 1:numel(trials); trialNum = trialNum(:);
 nTrial = numel(trials);
 
 %% LICK: all lick left and all lick rights
@@ -212,6 +213,7 @@ lastLick = splitapply(@(ids) ids(end-1), ids, G); % second to last action per tr
 % maskNotLick = ~startsWith(s, "Lick") | isundefined(secondLastAct); % logical to identify which values do not start with Lick
 % idx = find(maskNotLick); % any action non-Lick?
 
+%%
 % ENSURE VARIABLES ARE THE SAME LENGTH
 %sometimes if run is terminated manually, it can end in the middle of a
 %trial such that some events (trialStart, ledOn) may have occurred but
