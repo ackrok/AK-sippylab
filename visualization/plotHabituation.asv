@@ -50,9 +50,9 @@ xlabel('recording date'); xticklabels({sub.date});
 ylabel('# trials'); sp(spNum).YLim = [0 255];
 str = sprintf('%s - total #hits per #trials \n',sub(1).mouse);
 for a = 1:length(sub)
-    nHit = numel(sub(a).beh.hits);
-    nTr  = height(sub(a).beh.trial) - numel(sub(a).beh.abort); % exclude aborted trials
-    str  = [str,sprintf('(%d)%d/%d=%1.1f.', a, nHit, nTr, 100*nHit/nTr)];
+    nhit = height(sub(a).beh.trial); 
+    ntrial  = sum(barY(a,:));
+    str  = [str,sprintf('(%d)%d/%d=%1.1f.', a, nhit, ntr, 100*nhit/ntr)];
 end
 title(str);
 fprintf('%s \n',str);

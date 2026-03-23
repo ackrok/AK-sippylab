@@ -193,17 +193,19 @@ end
 
 % For each group, take the last Id (last row within that trial)
 lastAct = splitapply(@(ids) ids(end), ids, G);   % categorical array, one per trial
-% needFix = find(startsWith(lastAct,'Lick','IgnoreCase',true)); % identify when last action is Lick action
-% for ii = needFix
-%     rows = find(G == ii); % row indices for this trial
-%     % sid  = ids(G == ii); % labels for this trial
-%     tmp  = ids(rows(end-1)); ticker = 1; % prior value
-%     while startsWith(tmp,'Lick') & (ticker < length(rows))
-%         ticker = ticker + 1;
-%         tmp = ids(rows(end-ticker));
-%     end
-%     lastAct(ii) = tmp;
-% end
+needFix = find(startsWith(lastAct,'Lick','IgnoreCase',true)); % identify when last action is Lick action
+for ii = needFix
+    rows = find(G == ii); % row indices for this trial
+    sid  = ids(G == ii); % labels for this trial
+    tmp  = ids(rows(end-1)); % prior value
+    while startsWith(tmp,'Lick')
+        tmp 
+
+    j = find(~startsWith(sid, "Lick", "IgnoreCase", true), 1, 'last');
+    if ~isempty(j)
+        lastAct(needFix(ii)) = sid(j);
+    end
+end
 
 % Take second to last Id (should be LickXXX)
 lastLick = splitapply(@(ids) ids(end-1), ids, G); % second to last action per trial
