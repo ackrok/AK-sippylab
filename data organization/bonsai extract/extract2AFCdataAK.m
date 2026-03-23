@@ -337,6 +337,8 @@ catch
     if all(isnan(beh.abort)); beh.abort = []; end
 end
 
+beh.pokeCount = splitapply(@(s) sum(strcmpi(s,'LickCenter')), ids, G);
+
 %% MISS
 % Example: soundOnLeft then does NOT lickLeft OR lickRight within reward window. 
 % Different from error/incorrectAction as detailed below, as mouse did not
