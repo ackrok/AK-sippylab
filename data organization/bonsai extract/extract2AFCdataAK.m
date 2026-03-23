@@ -122,6 +122,7 @@ uni    = cellstr(unique(statetrans.Id)); % identify unique behavioral event name
 ids    = string(statetrans.Id); % convert to string for easier comparison
 G      = findgroups(statetrans.Trial); % group trials and get unique trial ids
 trialNum = 1:numel(trials);
+nTrial = numel(trials);
 
 %% LICK: all lick left and all lick rights
 try beh.lickLeft = TS0(ids == 'LickLeft');
