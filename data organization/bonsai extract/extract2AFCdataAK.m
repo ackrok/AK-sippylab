@@ -11,7 +11,7 @@ function beh = extract2AFCdataAK(varargin)
 %       filePath = uigetdir('Select Folder with StateTransitions.csv File');
 %       cd(filePath)
 %       fileName = dir('*StateTransitions.csv');
-%       statetrans=GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+%       statetrans=GetBonsai_Pho_StateTransitions_Celeste(fileName.name);
 % 'photo' - logical for photometry
 %       For experiments with behavioral and photometry, then use fxn
 %       'firstFrameBeforeEventIndex' to convert time stamps to "samples"
@@ -198,14 +198,22 @@ lastAct = splitapply(@(ids) ids(end), ids, G);   % categorical array, one per tr
 % needFix = find(startsWith(lastAct,'Lick','IgnoreCase',true)); % identify when last action is Lick action
 % for ii = needFix
 %     rows = find(G == ii); % row indices for this trial
-%     % sid  = ids(G == ii); % labels for this trial
+%     sid  = ids(G == ii); % labels for this trial
 %     tmp  = ids(rows(end-1)); ticker = 1; % prior value
 %     while startsWith(tmp,'Lick') & (ticker < length(rows))
 %         ticker = ticker + 1;
 %         tmp = ids(rows(end-ticker));
 %     end
 %     lastAct(ii) = tmp;
+%     % OR
+    % j = find(~startsWith(sid, "Lick", "IgnoreCase", true), 1, 'last');
+    % if isempty(j)
+    %     lastAct(ii) = missing;            % no non-Lick found
+    % else
+    %     lastAct(ii) = sid(j);
+    % end
 % end
+%
 
 % Take second to last Id (should be LickXXX)
 lastLick = splitapply(@(ids) ids(end-1), ids, G); % second to last action per trial
@@ -296,12 +304,27 @@ beh.hitT = hitsT; % table
 beh.hits = beh.hitT.hits; % time stamps for hits
 
 %% ABORT HOLD
-% Example: LEDon then mouse initiates a center hold but does NOT maintain 
-%   hold for specified duration (eg, 200ms).
-% Note: exclude failed-to-initiate trials where mouse does not start center
-%   hold, as captured by 'trialFail' variable.
+% For correctly fulfilled hold requirement, will be in table as
+% LickCenter > SoundOnLeft/Right, and must be sequential. If not, then
+% mouse failed hold and may re-attempt.
+%
 beh.abort = nan(numel(trials),1);
 try 
+    beh.abort = TS0(strcmpi(ids,'abort')); % in full behavior, will have return of 'Abort'
+catch
+    % ensuring that checks for an immediate adjacency: a "LickCenter" at position k followed by "SoundOnLeft" or "SoundOnRight" at position k+1 within the same trial.
+    % for k = 1:nTrial
+    %     rows = find(G == k); % row indices for this trial
+    %     sid  = ids(G == k); % labels for this trial
+    %     isLC = strcmpi(sid, 'lickcenter'); % check for position where Id is 'LickCenter'
+    %     nextIsSound = strcmpi(sid(2:end), "SoundOnLeft") | strcmpi(sid(2:end), "SoundOnRight");
+    %     hasPair = any(isLC(1:end-1) & nextIsSound);
+    %     if ~hasPair
+    %         beh.abort(k) = k; % CHANGE -- currently returning trial number
+    %     end
+    % end
+
+    % written to check if there is no sound played for given trial
     isSoundEvent = strcmpi(ids,'SoundOnLeft') | strcmpi(ids,'SoundOnRight'); % rows that are sound events (case-insensitive)
     trialSound  = unique(statetrans.Trial(isSoundEvent)); % trials that have sound events
     trialNoSound = setdiff(trials, trialSound); % returns trials that do NOT have sound events
@@ -312,7 +335,6 @@ try
         end
     end
     if all(isnan(beh.abort)); beh.abort = []; end
-catch, beh.abort = [];
 end
 
 %% MISS
