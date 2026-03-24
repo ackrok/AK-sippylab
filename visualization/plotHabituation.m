@@ -26,6 +26,7 @@ end
 %%
 fig = figure; theme(fig,'light');
 spX = 2; spY = 3;
+clr = orderedcolors('gem'); % default colors
 
 %% (1) outcome by trial
 spNum = 1;
@@ -55,15 +56,22 @@ for a = 1:length(sub)
     str  = [str,sprintf('(%d)%d/%d=%d.', a, nHit, nTr, round(100*nHit/nTr))];
 end
 title(str);
+
+%% 
+str = sprintf('%s performance (#hits/#trials) \n',sub(1).mouse);
+for a = 1:length(sub)
+    nHit = numel(sub(a).beh.hits);
+    nTr  = height(sub(a).beh.trial) - numel(sub(a).beh.abort); % exclude aborted trials
+    str  = [str,sprintf('  (%d)%s: %d/%d = %d%%.\n', a, sub(a).date, nHit, nTr, round(100*nHit/nTr))];
+end
 fprintf('%s \n',str);
 
-%% (2-3) lick vector to reward
+%% (2) lick vector to reward
 spNum = 2;
 
 bin = 0.1; % bin width, in seconds
 win = [-1 1]; % window, in seconds
 lickHit = cell(length(sub),2); % initialize cell array
-lbl = {'lick right','lick left'}; % labels for plotting
 for a = 1:length(sub)
     beh = sub(a).beh; Fs = 1;
     pethR = getClusterPETH (beh.lickRight./Fs, beh.hits./Fs, bin, win);
@@ -74,62 +82,72 @@ end
 pethTime = pethR.time; % extract time vector for plotting
 
 sp(spNum) = subplot(spX, spY, spNum); hold on
-clr = lines(7); 
-b = 1; % lickRight
-for a = 1:size(lickHit,1)
-    shadederrbar(pethTime, nanmean(lickHit{a,b},2), SEM(lickHit{a,b},2), clr(a,:));
+for a = 1:length(sub)
+    plot(pethTime, mean(lickHit{a,1},2,'omitnan'), ... % right
+        'Color', clr(a,:), 'LineWidth', 1.5, 'DisplayName', sprintf('%s right',sub(a).date));
+    plot(pethTime, mean(lickHit{a,2},2,'omitnan'), ... % left
+        'Color', clr(a,:), 'LineWidth', 1.5, 'LineStyle', '--', 'DisplayName', sprintf('%s left',sub(a).date));
 end
-xline(0); xlabel('time to reward (s)'); ylim([0 1]); ylabel('licks (Hz)');
-title([lbl{b},' - freq to reward']);
-legend({sub.date},'Location','northwest');
+xline(0,'DisplayName',''); xlabel('time to reward (s)'); 
+ylim([0 1]); ylabel('licks (Hz)');
+title('lick frequency to reward');
+legend('Location','northwest');
 
-sp(spNum) = subplot(spX, spY, spNum+1); hold on
-clr = lines(7); 
-b = 2; % lickLeft
-for a = 1:size(lickHit,1)
-    shadederrbar(pethTime, nanmean(lickHit{a,b},2), SEM(lickHit{a,b},2), clr(a,:));
+%% (3) timing of rewards
+spNum = 3;
+barY = nan(length(sub),2); % preallocate matrix
+for a = 1:length(sub)
+    beh = sub(a).beh; 
+    barY(a,1) = beh.hits(1); % time to 1st reward in samples
+    barY(a,2) = beh.hits(end); % time to last reward
 end
-xline(0); xlabel('time to reward (s)'); ylim([0 1]); ylabel('licks (Hz)');
-title([lbl{b},' - freq to reward']);
-legend({sub.date},'Location','northwest');
+sp(spNum) = subplot(spX, spY, spNum);
+b = bar(barY); % plot bar graph
+for a = 1:length(b)
+    b(a).Labels = round(b(a).YData);
+end
+xlabel('recording date'); xticklabels({sub.date});  
+ylabel('time to reward (s)');
+legend({'1st reward','last reward'},'location','west');
+str = 'last at (min):';
+for a = 1:length(sub)
+    str = [str,sprintf(' (%d) %d.', a, round(barY(a,2)/60))];
+end
+title(str);
 
-%% (4) time to firstPoke from ledOn
+%% (4) time to soundOn from ledOn
 spNum = 4;
-
-hitPoke = nan(length(sub),4); 
-hitTime = nan(length(sub),4);
+timeHold = nan(length(sub),2); 
+timeHit = nan(length(sub),4);
 lbl = {'poke','hit'};
 for a = 1:length(sub)
     beh = sub(a).beh;
-    tmpPoke = beh.trial.firstPoke - beh.trial.ledOn; % first poke from ledOn
-    tmpHit  = beh.trial.end - beh.trial.soundOn; % hit time from soundOn
+
+    tmpHold = beh.trial.soundOn - beh.trial.ledOn; % soundOn - ledOn (time to complete proper hold)
+    tmpHit  = beh.trial.end - beh.trial.soundOn; % hit - soundOn (reward latency)
+
+    nTrial  = height(beh.hitT);
+    timeHold(a,1) = mean(tmpHold,1); % mean for all trials
+    timeHold(a,2) = std(tmpHold,[],1)./sqrt(nTrial); % SEM for all trials
+
     tLeft = beh.hitT.trial(strcmpi(beh.hitT.side,'left'));
     tRight = beh.hitT.trial(strcmpi(beh.hitT.side,'right'));
-    hitPoke(a,1) = mean(tmpPoke(tLeft),1); % mean, left trials
-    hitPoke(a,2) = std(tmpPoke(tLeft),[],1)./sqrt(numel(tLeft)); % SEM, left trials
-    hitPoke(a,3) = mean(tmpPoke(tRight),1); % mean, right trials
-    hitPoke(a,4) = std(tmpPoke(tRight),[],1)./sqrt(numel(tRight)); % SEM, right trials
-
-    hitTime(a,1) = mean(tmpHit(tLeft),1); % mean, left trials
-    hitTime(a,2) = std(tmpHit(tLeft),[],1)./sqrt(numel(tLeft)); % SEM, left trials
-    hitTime(a,3) = mean(tmpHit(tRight),1); % mean, right trials
-    hitTime(a,4) = std(tmpHit(tRight),[],1)./sqrt(numel(tRight)); % SEM, right trials
+    timeHit(a,1) = mean(tmpHit(tLeft),1); % mean, left trials
+    timeHit(a,2) = std(tmpHit(tLeft),[],1)./sqrt(numel(tLeft)); % SEM, left trials
+    timeHit(a,3) = mean(tmpHit(tRight),1); % mean, right trials
+    timeHit(a,4) = std(tmpHit(tRight),[],1)./sqrt(numel(tRight)); % SEM, right trials
 end
 
 sp(spNum) = subplot(spX, spY, spNum); hold on
-clr = orderedcolors('gem'); % default colors
-errorbar(1:length(sub), hitPoke(:,1), hitPoke(:,2),...
-    '-o','MarkerSize',10,'MarkerFaceColor',clr(2,:),'Color',clr(2,:),'LineStyle','none');
-errorbar(1:length(sub), hitPoke(:,3), hitPoke(:,4),...
-    '-o','MarkerSize',10,'MarkerFaceColor',clr(1,:),'Color',clr(1,:),'LineStyle','none');
+errorbar(1:length(sub), timeHold(:,1), timeHold(:,2),...
+    '-o','MarkerSize',10,'MarkerFaceColor',clr(5,:),'Color',clr(5,:),'LineStyle','none');
 xlim([0.5 0.5+length(sub)]); xticks(1:length(sub));
 xlabel('recording date'); xticklabels({sub.date});  
-ylabel('time from LED-on (s)'); 
+ylabel('time from LED-on (s)');
 sp(spNum).YLim(1) = 0; % y-axis to start at 0 seconds
-legend({'left','right'},'Location','northeast');
-str = 'firstPoke:';
+str = 'ledOn to hold(s):';
 for a = 1:length(sub)
-    str = [str,sprintf(' (%d) %.1fs.', a, hitPoke(a,1))];
+    str = [str,sprintf(' (%d) %.1f.', a, timeHold(a,1))];
 end
 title(str);
 
@@ -137,43 +155,20 @@ title(str);
 spNum = 5;
 
 sp(spNum) = subplot(spX, spY, spNum); hold on
-errorbar(1:length(sub), hitTime(:,1), hitTime(:,2),...
+errorbar(1:length(sub), timeHit(:,1), timeHit(:,2),...
     '-o','MarkerSize',10,'MarkerFaceColor',clr(2,:),'Color',clr(2,:),'LineStyle','none');
-errorbar(1:length(sub), hitTime(:,3), hitTime(:,4),...
+errorbar(1:length(sub), timeHit(:,3), timeHit(:,4),...
     '-o','MarkerSize',10,'MarkerFaceColor',clr(1,:),'Color',clr(1,:),'LineStyle','none');
 xlim([0.5 0.5+length(sub)]); xticks(1:length(sub));
 xlabel('recording date'); xticklabels({sub.date});  
 ylabel('time from sound-on (s)'); yl = ylim; ylim([0 ceil(yl(2))]);
 sp(spNum).YLim(1) = 0; % y-axis to start at 0 seconds
 legend({'left','right'},'Location','southwest');
-str = 'hitTime:';
+str = 'tone to hit(s):';
 for a = 1:length(sub)
-    str = [str,sprintf(' (%d) %.1fs.', a, hitTime(a,1))];
+    str = [str,sprintf(' (%d) %.1f.', a, timeHit(a,1))];
 end
 title(str);
-
-%% (5) timing of rewards
-% spNum = 5;
-% barY = nan(length(sub),2); % preallocate matrix
-% for a = 1:length(sub)
-%     beh = sub(a).beh; 
-%     barY(a,1) = beh.hits(1); % time to 1st reward in samples
-%     barY(a,2) = beh.hits(end); % time to last reward
-% end
-% sp(spNum) = subplot(spX, spY, spNum);
-% b = bar(barY); % plot bar graph
-% for a = 1:length(b)
-%     b(a).Labels = round(b(a).YData);
-% end
-% xlabel('recording date'); xticklabels({sub.date});  
-% ylabel('time to reward (s)');
-% legend({'1st reward','last reward'});
-% str = 'time to 1st:';
-% for a = 1:length(sub)
-%     str = [str,sprintf(' (%d) %d s = %.1f min.',...
-%         a, round(barY(a,1)), barY(a,1)/60)];
-% end
-% title(str);
 
 %% (6) inter-reward intervals
 spNum = 6;
@@ -200,8 +195,8 @@ xlim([0.5 0.5+length(sub)]); xticks(1:length(sub));
 xlabel('recording date'); xticklabels({sub.date});  
 ylabel('inter-reward interval (s)'); 
 sp(spNum).YLim(1) = 0; % y-axis to start at 0 seconds
-str = 'mean IRI:';
+str = 'mean IRI(s):';
 for a = 1:length(sub)
-    str = [str,sprintf(' (%d) %ds.', a, round(iriMean(a)))];
+    str = [str,sprintf(' (%d) %d.', a, round(iriMean(a)))];
 end
 title(str);

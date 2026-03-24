@@ -34,10 +34,6 @@ yPlot = cell(nDrug, nFPchan); % output -- columns are FPchan, row are Drug
 % lens = arrayfun(@(s) numel(s.FP{1}), comb); % lengths of samples
 Fs = mode([comb.Fs]);
 cut2 = 34 * (60*Fs); % 34 minute long recording
-cut1 = 1; % cut1 = 5 * (60*Fs); injT = injT - (cut1/Fs);
-%
-time = makeTime(numel(signal), Fs);
-time = time - injT; [~,idx0] = min(abs(time));
 %
 uni = unique({comb.mouse}); nMouse = length(uni); % unique mouse IDs
 for m = 1:nMouse                   % for this mouse
@@ -46,12 +42,12 @@ for m = 1:nMouse                   % for this mouse
         Fs = comb(a).Fs;
         for b = 1:nFPchan          % for this photometry channel
             signal = comb(a).FP{b};
-            signal = signal(cut1:cut2);
-            [sigdff, sigZ] = dFF_drug(signal, Fs, injT);
+            signal = signal(1 : cut2);
+            out = dFF_drug(signal, Fs, injT);
             switch yunit
-                case 1, keep = signal; % raw signal
-                case 2, keep = sigdff; % dF/F
-                case 3, keep = sigZ;   % z-score
+                case 1, keep = out.signal; % raw units
+                case 2, keep = out.dff;    % dF/F
+                case 3, keep = out.z;      % z-score
             end
             yPlot{c, b}(:,m) = keep;
         end
@@ -105,7 +101,8 @@ tiledlayout(1,nFPchan, 'Padding','compact', 'TileSpacing','compact');
 for b = 1:nFPchan
     nexttile(b);
     for ii = 1:nDrug
-        mu = yPlotmu{ii,b}(:); sigma = yPlotstd{ii,b}(:); % extract from cell array
+        mu = yPlotmu{ii,b}(:);     % extract from cell array
+        sigma = yPlotstd{ii,b}(:); % extract from cell array
         shadederrbar(time(1:ds:end)./xadj, ...
             mu(1:ds:end), sigma(1:ds:end), clr{ii});
     end
@@ -115,6 +112,9 @@ for b = 1:nFPchan
     title(sprintf('%s (n = %d)',comb(1).FPnames{b}, nMouse));
     grid on;
 end
+
+%% (3b)
+
 
 %% OLD VARIANTS
 % % IF Bottom 5th percentile of signal
