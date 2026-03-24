@@ -15,13 +15,22 @@ end
 if numel(unique({comb.mouse})) ~= 1
     % if structure contains data from multiple unique mouse IDs then
     % extract rows from structure for a unique mouse into sub-structure
-    [uni,~,idxMap] = unique({comb.mouse});
+    uni    = unique({comb.mouse});
     choice = menu('Select mouse to analyze',uni);
-    match = find(strcmp({comb.mouse},uni{choice}));
-    sub = comb(match);
+    match  = find(strcmp({comb.mouse},uni{choice}));
+    sub    = comb(match);
 else
     sub = comb; % else plot data from all recordings in comb
 end
+
+%% 
+str = sprintf('%s performance (#hits/#trials) \n',sub(1).mouse);
+for a = 1:length(sub)
+    nHit = numel(sub(a).beh.hits);
+    nTr  = height(sub(a).beh.trial) - numel(sub(a).beh.abort); % exclude aborted trials
+    str  = [str,sprintf('  (%d) %s: %d/%d = %d%%.\n', a, sub(a).date, nHit, nTr, round(100*nHit/nTr))];
+end
+fprintf('%s \n',str);
 
 %%
 fig = figure; theme(fig,'light');
@@ -56,15 +65,6 @@ for a = 1:length(sub)
     str  = [str,sprintf('(%d)%d/%d=%d.', a, nHit, nTr, round(100*nHit/nTr))];
 end
 title(str);
-
-%% 
-str = sprintf('%s performance (#hits/#trials) \n',sub(1).mouse);
-for a = 1:length(sub)
-    nHit = numel(sub(a).beh.hits);
-    nTr  = height(sub(a).beh.trial) - numel(sub(a).beh.abort); % exclude aborted trials
-    str  = [str,sprintf('  (%d)%s: %d/%d = %d%%.\n', a, sub(a).date, nHit, nTr, round(100*nHit/nTr))];
-end
-fprintf('%s \n',str);
 
 %% (2) lick vector to reward
 spNum = 2;
