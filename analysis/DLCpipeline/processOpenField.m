@@ -32,7 +32,7 @@ calibrateOpenField;
 % end
 
 %% Import coordinates
-[fileName,filePath] = uigetfile('*.csv','Select the DLC file','MultiSelect','on');
+[fileName,filePath] = uigetfile('*.csv','Select the DLC file');
 cd(filePath); 
 assert(exist(fileName,'file')==2, '%s does not exist.', fileName);
 file=fullfile(filePath,fileName);

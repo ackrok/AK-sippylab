@@ -1,25 +1,27 @@
 %% Calibrate distance measurements based on image from video file
 
 % import the video file (.mp4)
-[fileName,filePath] = uigetfile('*.mp4','Select the VIDEO file','MultiSelect','on');
-[~,name,ext] = fileparts(fileName);
-
-% import the video file and save first frame as image
-cd(filePath);  
-obj = VideoReader(fileName);
-im = read(obj,1);
-imwrite(im, name, 'png');
-
-% read image into the workspace
-assert(exist(name,'file')==2, '%s does not exist.', name);
-im = imread(name);
+[fileName,filePath] = uigetfile({'*.mp4;*.png','files (*.mp4, *.png)'},'Select the VIDEO file');
+[~,name,type] = fileparts(fileName);
+cd(filePath);
+switch type
+    case '.mp4'
+        % import the video file and save first frame as image
+        obj = VideoReader(fileName);
+        im = read(obj,1);
+        imwrite(im, name, 'png');
+        
+        % read image into the workspace
+        assert(exist(name,'file')==2, '%s does not exist.', name);
+        im = imread(name);
+end
 
 % obtain data from image
 sz = size(im);
-myData.Units = 'pixels';
-myData.MaxValue = hypot(sz(1),sz(2));
-myData.Colormap = hot;
-myData.ScaleFactor = 1;
+% myData.Units = 'pixels';
+% myData.MaxValue = hypot(sz(1),sz(2));
+% myData.Colormap = hot;
+% myData.ScaleFactor = 1;
 
 % obtain center and size
 [centerPixel, boxPixel] = selectCenterAndScale(im);
@@ -47,4 +49,7 @@ calibrate.center = [xLo, yLo; xHi, yHi]; % corners of center box, in pixels
 calibrate.width  = pix; % width, in pixels
 calibrate.scale  = scale; % scaling factor
 calibrate.units  = 'cm';
-save('OFCalibration.mat','calibrate');
+
+mouseID = fileName(1:5); % extract mouse ID
+date = fileName(8:15); date = erase(date,'-'); % extract date
+save(['OFcalibration_',mouseID,'-',date,'.mat'],'calibrate');
