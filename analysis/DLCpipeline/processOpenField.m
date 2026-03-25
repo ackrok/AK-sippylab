@@ -15,8 +15,7 @@
 %% adjustable variables
 frameRate = 30; % in Hz
 threshold = 0.9; % cutoff for low-likelihood values
-binSec = 1; % analyze locomotion in X min bins
-maxVidLength = 35*60; % ENTER number of seconds at which to cut off video
+binSize = 1; % in minutes, for analyzing locomotion in X min bins
 
 %% Calibrate based on pixel width of video file
 calibrateOpenField;
@@ -28,7 +27,7 @@ calibrateOpenField;
 %         calibrateOpenField;
 %     end
 % else
-%     calibrate = load(fullfile(filePath,fileName) );
+%     load(fullfile(filePath,fileName) );
 % end
 
 %% Import coordinates
@@ -41,7 +40,7 @@ date = fileName(8:15); date = erase(date,'-'); % extract date
 
 tic
 hdr2 = readcell(fileName,'Range','2:2');
-colToGet = find(hdr2 == 'fiber'); % columns with headrow 2 as 'fiber'
+colToGet = find(strcmpi(hdr2,'fiber')); % columns with headrow 2 as 'fiber'
 opts = detectImportOptions(fileName);
 opts.DataLines = [4 Inf]; % skip first 3 header rows, read from row 4 onward
 opts.VariableNamesLine = 3; % read variable names on line 3
@@ -52,120 +51,68 @@ tbl = readtable(fileName, opts);
 toc
 
 %% Extract variables
-frame = 1:size(tbl,1); frame = frame(:);
-x = tbl.x;
+x = tbl.x; 
 y = tbl.y;
 likelihood = tbl.likelihood;
+
 coor = [x(:), y(:)];
+coor = coor - min(coor); % adjust so values are positive
+coor = coor .* calibrate.scale; % adjust by calibration scale
 
-% adjust by calibration scale
-coor = coor .* calibrate.scale;
+% trim to nearest minute
+cut = floor(numel(x)/(60 * calibrate.frameRate)); % round to nearest min
+cut = cut * 60 * calibrate.frameRate;    % convert to samples
+coor = coor(1:cut,:);          % trim
+likelihood = likelihood(1:cut);% trim
+x = coor(:,1);
+y = coor(:,2); 
 
-% cut to maximal video length
-cut = maxVidLength*frameRate ;
-coor = coor(1:floor(cut),:);
-frame = frame(1:floor(cut));
-likelihood = likelihood(1:floor(cut));
+%% Get distance
+beh = getDistanceOF(x, y, likelihood);
 
-%% Retain only valid coordinates
+%% Plot and adjust
+Nx = beh.coor(:,1); 
+Ny = beh.coor(:,2);
+lik = likelihood; 
 
-% mask low-likelihood coordinates, replace values with NaN
-mask = likelihood < threshold;
-coor(mask,:) = nan;
+fig = figure; theme(fig, 'light');
+% show background image beneath scatter
+subplot(1,2,1,'Parent',fig); 
+title('first frame');
+imshow(calibrate.image); drawnow;
+% plot normalized x- and y- coordinates
+ax = subplot(1,2,2,'Parent',fig); hold(ax,'on');
+title(sprintf('Draw box. \n Double-click or press Enter to finish.')); 
+scatter(ax, Nx, Ny, 10, 'filled', 'MarkerFaceAlpha', 0.2);
+axis equal; axis square; xlim([0 1]); ylim([0 1]);
+set(gca,'ydir','reverse');
+drawnow; % ensure titles render
+% prompt and draw rectangle ROI on the same axes
+msg = 'Draw a rectangle labeled "Center". Double-click or press Enter to finish.';
+disp(msg);
+hRect = drawrectangle(ax, 'Color', [1 0 0], 'Label', 'BOX');
+wait(hRect); % returns when ROI is finished
+title('Done!'); drawnow;
 
-% return percentage of frames that were above threshold
-n = length(coor);
-valid = ~isnan(coor(:,1));
-aboveThres = length(find(valid))/n; % save proportion of valid coordinates
+% extract box position
+pos = hRect.Position; % [xmin, ymin, width, height]
+xmin = pos(1); ymin = pos(2);
+xmax = xmin + pos(3); ymax = ymin + pos(4); 
 
-% interpolate missing values
-% note if endpoints are NaN, use nearest extrapolation.
-idx = (1:n).'; 
-if any(valid)
-    coor(~valid,:) = interp1(idx(valid), coor(valid,:), idx(~valid), 'linear', 'extrap');
-    else, coor(:) = NaN;
-end
-x = coor(:,1); y = coor(:,2);
+% remove outside coordinates
+outside = Nx <= xmin | Nx >= xmax | Ny <= ymin | Ny >= ymax;
+lik(outside) = 0.1; % set likelihood for outside points to 0.1
 
-%% Frame-to-frame distance
-distance = hypot(diff(x), diff(y));
+% repeat analysis
+beh = getDistanceOF(x, y, lik);
 
-% interpolate nans in distance
-if any(isnan(distance))
-    m = numel(distance); idxD = (1:m).';
-    valid = ~isnan(distance);
-    distance(~valid) = interp1(idxD(valid), distance(valid), idxD(~valid), 'linear', 'extrap');
-end
+%% optional rotation, if necessary
+% Nx = beh.coor(:,1); 
+% Ny = beh.coor(:,2);
+% [Nx, Ny, theta] = rotateOpenField(Nx, Ny, theta);
 
-% total distance (in cm)
-totDist = sum(distance, 'omitnan');
-
-% distance by bins
-binSec = 1*60;
-framesPerBin = frameRate * binSec;  % number of frames in bin
-% assign each distance sample to a bin (1-based)
-binIdx = ceil((1:numel(distance)) / framesPerBin).';
-% sum distances per bin
-numBins = max(binIdx);
-distPerBin = accumarray(binIdx, distance, [numBins, 1], @sum, 0);  % cm per bin
-% adjust for bin size and make time vector
-distPerBin = distPerBin / binSec;
-timeBin = ((0:numBins-1) * binSec) / 60;
-timeBin = timeBin - 10; 
-
-%% Normalize x and y coordinates
-Nx = normalize(x,'range');
-Ny = normalize(y,'range');
-normData = [frame, Nx, Ny];
-
-% counts for heatmap
-pts = linspace(0, 500, 201);
-ave = histcounts2(Ny.*500, Nx.*500, pts, pts);
-
-% create Gaussian filter matrix:
-[xG, yG] = meshgrid(-500:500);
-sigma = 3.5;
-g = exp(-xG.^2./(2.*sigma.^2)-yG.^2./(2.*sigma.^2));
-g = g./sum(g(:));
-
-%% Plot individual animal tracks to normalized space
-% fig = figure; theme(fig, 'light');
-% 
-% subplot(1,3,1);
-% s = scatter(Nx, Ny, 20, 'filled'); s.MarkerFaceAlpha = 0.2; 
-% % plot(Nx, Ny, ".b", LineWidth=2);
-% axis equal; axis square;
-% set(gca,'ydir','reverse');
-% title([mouseID,'-',date])
-% 
-% subplot(1,3,2);
-% imagesc(pts, pts, conv2(ave, g, 'same'));
-% axis equal; axis square
-% set(gca, 'xLim', pts([1 end]), 'yLim', pts([1 end]), 'yDir', 'normal');
-% colormap(turbo(256)); clim([0 5]); colorbar;
-% ylim([0 500]); xlim([0 500]);
-% set(gca,'ydir','reverse');
-% title('Heatmap');
-% 
-% subplot(1,3,3); hold on
-% xline(0,'LineWidth',1.5);
-% plot(timeBin, distPerBin, 'o-b', 'MarkerFaceColor', [0 0 0]);
-% axis square;
-% xlabel('Time (min)'); ylabel('Distance (cm per 5 min)');
-% title('Distance Travelled')
-
-%% Save Results to .mat structure
-beh = struct;
-beh.mouseID  = mouseID;
-beh.date     = date;
+%% Save 
+beh.mouseID   = mouseID;
+beh.date      = date;
 beh.calibrate = calibrate;
-beh.coorNorm  = [Nx, Ny];
-beh.distance  = distance(:);
-beh.totalDist = totDist;
-beh.binSize = binSec;
-beh.binTime = timeBin(:);
-beh.binDist = distPerBin(:);
-beh.aboveThres = aboveThres;
-mat_suffix = '.mat';
-matFile = fullfile(filePath, [mouseID date mat_suffix]);
-save(matFile,'beh');
+save([mouseID,'-',date,'_OF.mat'],'beh');

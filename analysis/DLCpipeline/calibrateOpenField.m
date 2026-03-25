@@ -39,9 +39,13 @@ cm = str2double(answer{2});
 scale = cm/pix;
 
 % output structure
+mouseID = fileName(1:5); % extract mouse ID
+date = fileName(8:15); date = erase(date,'-'); % extract date
+calibrate.mouseID = mouseID; 
+calibrate.date = date;
 calibrate.filePath = filePath;
 calibrate.fileName = fileName;
-calibrate.frameRate = obj.FrameRate;
+calibrate.frameRate = 30; % obj.FrameRate;
 % calibrate.video = obj;
 calibrate.image  = im; % .png single frame image
 calibrate.size   = sz; % size of image, in pixels
@@ -52,4 +56,4 @@ calibrate.units  = 'cm';
 
 mouseID = fileName(1:5); % extract mouse ID
 date = fileName(8:15); date = erase(date,'-'); % extract date
-save(['OFcalibration_',mouseID,'-',date,'.mat'],'calibrate');
+save([mouseID,'-',date,'_OFcalibration.mat'],'calibrate');
