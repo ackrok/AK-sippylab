@@ -17,17 +17,17 @@
 % Anya Krok, July 2022
 % Updated Anya Krok, December 2025 for use in Sippy lab
 
-if ~exist('combRaw','var'); combRaw = extractComb_raw(); end
-y = menu('Input',combRaw(1).FPnames); % select which signal to analyze
+if ~exist('comb','var'); comb = extractComb_raw(); end
+y = menu('Input',comb(1).FPnames); % select which signal to analyze
 
 %% FFT
 needL = 900; % analyze first 15 minutes of recording
 out_fft = []; % clear variable
 h = waitbar(0, 'FFT photometry signals');
-for x = 1:length(combRaw)
-    vec = [combRaw(x).FP{y}]; 
+for x = 1:length(comb)
+    vec = [comb(x).FP{y}]; 
     if isempty(vec); continue; end
-    Fs = combRaw(x).Fs;
+    Fs = comb(x).Fs;
     vec = repmat(vec,[ceil(needL*Fs/length(vec)) 1]);
     vec = vec(1:needL*Fs);
     L = length(vec);        % Length of signal
@@ -40,13 +40,13 @@ for x = 1:length(combRaw)
     P1 = medfilt1(P1);      % Median filter initial FFT
     P1 = movmean(P1,500);   % Smooth FFT output
     out_fft = [out_fft, P1]; % Concatenate output
-    waitbar(x/length(combRaw),h);
+    waitbar(x/length(comb),h);
 end
 close(h);
 f = f(:);
 
 %% normalize FFT across specified range
-range_norm = [0.1 25]; % range for normalization of FFT output, in Hz
+range_norm = [0.1 50]; % range for normalization of FFT output, in Hz
 
 out_norm = [];
 r = find(f == range_norm(1)):find(f == range_norm(2)); % restrict range to specified above
@@ -70,16 +70,16 @@ end
 
 %%
 figure;
-uni = unique({combRaw.mouse});
+uni = unique({comb.mouse});
 spX = floor(sqrt(length(uni))); spY = ceil(length(uni)/spX);
 for ii = 1:length(uni)
-    match = strcmp({combRaw.mouse},uni{ii});
+    match = strcmp({comb.mouse},uni{ii});
     subplot(spX,spY,ii); hold on
     plot(flog, out_norm(:,match)); % plot normalized FFT
     xlabel('Frequency');
         xlim([flog(f == 0.5) flog(f == 20)]); 
         xticks(-2:2); xticklabels({'0.01','0.1','1','10','100'});
     ylabel('Power (a.u.)'); ylim = [0 1]; yticks([0 1]);
-    title(sprintf('%s: fft (%s)',uni{ii},combRaw(1).FPnames{y}));
+    title(sprintf('%s: fft (%s)',uni{ii},comb(1).FPnames{y}));
     legend('pre','ket','post');
 end

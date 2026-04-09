@@ -43,4 +43,7 @@ linePixel = hypot(dx, dy); % pixels
 
 % Cleanup UI callback and leave figure open (or close if desired)
 title(hAx, sprintf('Done: Rect=[%.1f %.1f %.1f %.1f], Line=%.1f px', centerPixel, linePixel));
+
+% Close the figure after displaying the results
+close(hFig);
 end

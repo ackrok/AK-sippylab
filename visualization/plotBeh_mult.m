@@ -2,7 +2,7 @@
 % Description: compare behavior performance across multiple recordings for an animal.
 %
 % INPUTS
-% 'comb' - combined data structure from extractCombstruct
+% 'comb' - combined data structure from extractComb
 % 
 % OUTPUTS
 % 'fig' - generates figures plotting behavioral performance, one figure per

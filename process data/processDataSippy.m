@@ -21,7 +21,8 @@
 
 %%o
 % selectDir = uigetdir('Select Directory with Photometry files'); % pop-up window to select file directory
-[~,filePath] = uigetfile('Photometry*.csv','Select photometry CSV file','MultiSelect','off');
+startPath = pwd; % current folder
+[~,filePath] = uigetfile('Photometry*.csv','Select photometry CSV file', startPath);
 cd(filePath);  % open file directory
 
 %%
@@ -107,7 +108,7 @@ data.gen.params = params;
 % align time stamps for behavioral events (hits) to photometry time stamps
 try 
     fileName = dir('*StateTransitions.csv');
-    statetrans = GetBonsai_Pho_StateTransitions_Celeste(filename.name);
+    statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileName.name);
     beh = extract2AFCdataAK(statetrans, 'photo');
     data.beh = beh; 
     data = alignBehTStoPhotoTS(data, statetrans); % frame relative to photometry signal

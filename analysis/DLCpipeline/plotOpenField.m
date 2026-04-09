@@ -8,14 +8,13 @@
 % Written by Anya Krok March 2026
 
 %% load data
-[fileName,filePath] = uigetfile('*.mat','Select OF data','MultiSelect','off');
-load(fullfile(filePath, fileName));
 % data may be in 'data' structure with additional photometery, etc
 if exist('data','var') && isfield(data,'beh') && isfield(data.beh,'calibrate')
     beh = data.beh; % Assign the behavior data from the loaded structure
 elseif exist('beh','var') && isfield(beh,'calibrate')
 else
-    error('No open field data loaded. \n')
+    [fileName,filePath] = uigetfile('*.mat','Select OF data','MultiSelect','off');
+    load(fullfile(filePath, fileName));
 end
 
 %% extract variables

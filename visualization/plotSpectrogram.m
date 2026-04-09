@@ -5,20 +5,23 @@
 % Anya Krok, Jan 29 2026
 
 %% FFT with pwelch
+b = menu('Input',comb(1).FPnames); % select which signal to analyze
+
 out = struct;
+tic
 for a = 1:length(comb)
-    b = 2; 
     signal = comb(a).FP{b};  % signal
     Fs = comb(a).Fs;         % sampling frequency, Hz
     params.winSec = 10; params.fmax = 15; % parameters
     [P, T, F] = getWelch(signal, Fs, params); % ANALYZE
     out(a).mouse = comb(a).mouse; out(a).date = comb(a).date;
-    out(a).P = P; out(a).T = T; out(a).F = F;
+    out(a).P = P; out(a).T = T(:); out(a).F = F(:);
 end
+toc
 
 %% Band power
-band = [1 3]; % Hz
-win1 = [0 10]; % baseline window pre-injection
+band = [1 5]; % Hz
+win1 = [0 5]; % baseline window pre-injection
 win2 = [12 15]; % post-injection window
 inj  = 11; % injection time
 
@@ -38,13 +41,14 @@ end
 %% Plot band power (1-3Hz) over time
 uni = unique({out.mouse}); 
 
-figure;
+fig = figure; theme(fig, 'light');
 for x = 1:length(uni)
     match = find(strcmp({out.mouse},uni{x}));
     subplot(length(uni),1,x); hold on
     for y = 1:length(match)
         a = match(y);
-        plot(out(a).T - inj, out(a).bandPower); % plot trace
+        plot(out(a).T - inj, movmean(out(a).bandPower, 10), ...
+            'LineWidth', 2); % plot trace
     end
     xline(0, '--k', 'LineWidth', 2);
     xlabel('time from injection (min)'); xlim([-10 20]);
@@ -57,7 +61,7 @@ end
 winPower = [out.winPower]';
 injLbl = {'saline','ketamine','saline','ketamine'};
 
-figure;
+fig = figure; theme(fig, 'light');
 bb = bar(winPower(:,2)); ylabel('band power');
 % hold on; yline(1,'--k','LineWidth',2); ylabel('band power divided by baseline');
 xticklabels(strcat({out.mouse},{'-'},injLbl));
@@ -70,10 +74,16 @@ clr(2:2:end, :) = repmat([1 0 0], numel(2:2:size(winPower,1)), 1);
 bb.CData = clr;
 
 %% Plot spectrogram (for ONE recording)
-a = 3;
-figure;
+a = 1;
+fig = figure; theme(fig, 'light');
 imagesc(out(a).T, out(a).F, 10*log10(out(a).P));
 axis xy;
 xlabel('time (min)'); ylabel('frequency (Hz)');
 title(sprintf('PSD'));
 colorbar;
+
+%% Plot trace
+a = 4;
+fig = figure; theme(fig, 'light');
+signal = [];
+plot(makeTime(numel(comb(a).FP{1}), signal, 'k'));

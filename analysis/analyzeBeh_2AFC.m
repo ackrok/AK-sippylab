@@ -2,25 +2,30 @@ function out = analyzeBeh_2AFC(comb)
 % Analyze behavioral performance across multiple recordings across multiple
 % unique mouse IDs, for two-alternate forced choice task in Sippy lab.
 %
-% out = analyzeBeh_2AFC(comb)
+% Syntax:
+%   out = analyzeBeh_2AFC(comb)
 %
-% INPUTS
+% Inputs:
 % 'comb' - structure with data from multiple recordings, created using 
-%           script "extractComb"
+%           comb = extractComb_beh or extractComb;
 %
-% OUTPUTS
+% Outputs:
 % 'out' - structure with behavior performance metrics
 %   - out(a).mouse   - mouse ID
 %   - out(a).date    - all recording dates
-%   - out(a).lastAct - last action taken by mouse for each trial
-%   - out(a).lickHit - matrix with licks aligned to each rewarded trial
+%   - out(a).outcome - trial outcome (hit, miss, error, abort)
+%   - out(a).lickHit - licks aligned to reward delivery
 %           - default to use bin width 0.1 sec, window [-1 1] sec
-%   - out(a).hitTime - time to 1st and last rewarded trial, in seconds
-%   - out(a).iri     - cell array with inter-reward intervals, in seconds
+%   - out(a).rewTime - time to 1st and last rewarded trial, in minutes
+%   - out(a).event   - time to events (ledOn to hold, soundOn to hit)
+%   - out(a).iri     - inter-reward intervals, in seconds
+%   - out(a).endTime - end of recording, in minutes
 %
-% Note: to extract table headers, use headers = T.Properties.VariableNames
+% Note: to extract table headers, use lbl = T.Properties.VariableNames
+%       to extract data, use mat = T{j,k} or cell2mat(T{j,k});
 %
-% Written by Anne Krok, Dec 2025
+% Written by Anya Krok, Dec 2025
+% Updated April 2026
 %
 
 % Initialize output structure
@@ -34,20 +39,24 @@ lickWin = [-1 1]; % window for PETH, in seconds
 uniMouse = unique({comb.mouse});
 
 % Loop through each unique mouse ID to calculate performance metrics
-for thisMouse = 1:length(uniMouse)
+for j = 1:length(uniMouse)
     % Loop through each recording for each unique mouse ID
-    match = find(strcmp({comb.mouse},uniMouse{thisMouse}));
+    match = find(strcmp({comb.mouse},uniMouse{j}));
+    nGroup = length(match);
 
     % Initiate outcomes variables
-    trialOutcome = nan(length(match),5);
-    trialOutcomes = {'hit R','hit L','miss','error','other'};
-    lickHit = cell(length(match),2); 
-    lickHitLbl = {'lick R','lick L'};
+    lastOutcome = nan(nGroup, 5);
+    lblOutcomes = {'hit R','hit L','miss','error','abort'};
+    lickHit = cell(nGroup, 2);
+    lblLickHit = {'R lick to hit (Hz)','L lick to hit (Hz)'};
     lickHitTime = [];
-    hitTime = nan(length(match),2);
-    hitTimeLbl = {'1st reward','last reward'};
+    rewTime = nan(length(match),2);
+    lblRewTime = {'1st reward (min)','last reward (min)'};
+    eventTimes = cell(nGroup, 3);
+    lblTimes = {'ledOn to hold', 'R tone to hit','L tone to hit'};
     iri = cell(length(match),1);
     endTime = []; 
+    dprime = [];
 
     for a = 1:length(match)
         mouse = comb(match(a)).mouse; % Store to be able to check in case of errors 
@@ -62,7 +71,7 @@ for thisMouse = 1:length(uniMouse)
             % Detemine based on whether values in lick vector are integers,
             % as if they are all integers then are likely in samples but if
             % are non-integers then are likely all in seconds.
-        switch isVecInteger(beh.lickCenter) % Checking lickCenter vector
+        switch isVecInteger(beh.pokeCenter) % Checking lickCenter vector
             case true
                 adj = comb(match(a)).Fs; % Sampling frequency
             case false
@@ -72,34 +81,37 @@ for thisMouse = 1:length(uniMouse)
         % Loop through each trial to first identify outcome
         % Possible outcomes: Hit, with either LickRight or LickLeft being
         % second to last event, also Miss, IncorrectAction (error/noHold)
-        try lastAct = [beh.lastAct.lastAct]; % Last action for each trial
-            side = [beh.lastAct.lastLick]; % Second to last action for each trial
-        catch lastAct = [beh.trial.lastAct]; % Pre or post-Feb 2026 data organization
-              side = [beh.trial.lastLick];
-        end
-        if any(lastAct == 'LeftHit') || any(lastAct == 'RightHit') % 2AFC
-            trialOutcome(a, 1) = length(find(lastAct == 'RightHit'));
-            trialOutcome(a, 2) = length(find(lastAct == 'LeftHit'));
-        else
-            side = side(lastAct == 'Hit')); % tone-reward tast
-            trialOutcome(a, 1) = length(find(side == "LickRight"));
-            trialOutcome(a, 2) = length(find(side == "LickLeft"));
-        end
-        % counts = countcats(lastAct); % count occurence of categorical array elements by category
-        % names = categories(lastAct); % returns possible names for categories
-        trialOutcome(a, 3) = length(find(lastAct == 'Miss'));
-        trialOutcome(a, 4) = length(find(lastAct == 'IncorrectAction'));
-        trialOutcome(a, 5) = length(lastAct) - sum(trialOutcome(a,1:4));
-    
+        lastOutcome(a, 1) = numel(find(strcmpi(beh.hitT.side,'right'))); % right HIT
+        lastOutcome(a, 2) = numel(find(strcmpi(beh.hitT.side,'left')));  % left HIT
+        lastOutcome(a, 3) = numel(beh.miss);  % miss
+        lastOutcome(a, 4) = numel(beh.error); % incorrect action
+        lastOutcome(a, 5) = numel(beh.abort);  % abort hold
+
+        % d-prime
+        nHit = numel(beh.hits);
+        nTr  = height(beh.trial) - numel(beh.abort); % exclude aborted trials
+        dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));    
+
         % Generate matrix of licks aligned to rewarded Hit trials
-        pethR = getClusterPETH(beh.lickRight./adj, beh.hits./adj, lickBin, lickWin);
-        pethL = getClusterPETH(beh.lickLeft./adj,  beh.hits./adj, lickBin, lickWin);
+        hitR = beh.hitT.hits(strcmpi(beh.hitT.side,'right'));
+        hitL = beh.hitT.hits(strcmpi(beh.hitT.side,'left'));
+        pethR = getClusterPETH(beh.lickRight./adj, hitR./adj, lickBin, lickWin);
+        pethL = getClusterPETH(beh.lickLeft./adj,  hitL./adj, lickBin, lickWin);
         lickHit{a, 1} = pethR.cts{1}; % Store lick data for right trials
         lickHit{a, 2} = pethL.cts{1};  % Store lick data for left trials
     
         % Extract timing of 1st and last rewards
-        hitTime(a,1) = beh.hits(1)/adj; % time to 1st reward, in seconds
-        hitTime(a,2) = beh.hits(end)/adj; % time to last reward, in seconds
+        rewTime(a,1) = (beh.hits(1)/adj)/60; % time to 1st reward, in minutes
+        rewTime(a,2) = (beh.hits(end)/adj)/60; % time to last reward, in minutes
+
+        % Extract time to sound On from led On
+        % Corresponds to time until mouse completes hold.
+        trialR = strcmpi(beh.trial.side,'right');
+        trialL = strcmpi(beh.trial.side,'left');
+        eventTimes{a,1} = beh.trial.soundOn - beh.trial.ledOn;
+        tmpHit = beh.trial.end - beh.trial.soundOn;
+        eventTimes{a,2} = tmpHit(trialR); 
+        eventTimes{a,3} = tmpHit(trialL);
 
         % Inter-reward intervals
         iri{a} = diff(beh.hits./adj); % inter-hit intervals, in seconds
@@ -109,21 +121,21 @@ for thisMouse = 1:length(uniMouse)
         try endTime(a) = beh.trialEnd(end);
         catch endTime(a) = beh.trial.end(end); 
         end
+        endTime = endTime(:)./60; % convert to minutes
     end
    
     % Load into output structure
-    out(thisMouse).mouse = uniMouse{thisMouse};
-    out(thisMouse).date = {comb(match).date};
-    out(thisMouse).lastAct = array2table(trialOutcome, ...
-        'VariableNames', trialOutcomes);
-    out(thisMouse).lickHit = array2table(lickHit, ...
-        'VariableNames', lickHitLbl);
-    out(thisMouse).lickHit_time = pethR.time; % Extract time vector from PETH
-    out(thisMouse).hitTime = array2table(hitTime, ...
-        'VariableNames', hitTimeLbl);
-    out(thisMouse).iri = iri;
-    out(thisMouse).endTime = endTime;
+    out(j).mouse = uniMouse{j};
+    out(j).date  = {comb(match).date}';
 
+    out(j).outcome = array2table(lastOutcome, 'VariableNames', lblOutcomes);
+    out(j).dprime  = dprime(:);
+    out(j).lick    = cell2table(lickHit, 'VariableNames', lblLickHit);
+    out(j).lickTime = pethR.time;
+    out(j).rewTime = array2table(rewTime, 'VariableNames', lblRewTime);
+    out(j).event   = cell2table(eventTimes, 'VariableNames', lblTimes);
+    out(j).iri     = iri;
+    out(j).endTime = endTime(:);
 end
    
 end
