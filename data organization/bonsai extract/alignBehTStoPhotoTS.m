@@ -24,8 +24,8 @@ function [data] = alignBehTStoPhotoTS(data)
 %
 %
 % Anya Krok, December 2025
-% Updated by Anya Krok, March 2026: code now will be run after
-% extract2AFCdataAK and change computer time stamps to samples 
+% Updated March 2026: code now will be run after extract2AFCdataAK and change computer time stamps to samples 
+% Updated April 2026: integrate for use with wavesurfer output
 
 %% check
 % Check whether data.beh timeStamps are in elapsedTime or already in 
@@ -37,7 +37,6 @@ end
 
 %% extract variables
 beh = data.beh;
-time = data.acq.time{1}; 
 
 beh_photo = struct;
 beh_photo.lickLeft  = [];
@@ -49,12 +48,16 @@ beh_photo.miss  = [];
 beh_photo.error = [];
 
 %%
-% newTS = firstFrameBeforeEventIndex(oldTS, time);
+Fs = data.gen.acqFs;
+nSamp = numel(data.acq.FP{1});
 
+%%
+% Syntax: newTS = firstFrameBeforeEventIndex(oldTS, time);
+%
 % lickLeft
 oldTS = beh.lickLeft;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.lickLeft = newTS;
@@ -64,7 +67,7 @@ end
 % lickRight
 oldTS = beh.lickRight;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.lickRight = newTS;
@@ -73,7 +76,7 @@ end
 % pokeCenter
 oldTS = beh.pokeCenter;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.pokeCenter = newTS;
@@ -82,7 +85,7 @@ end
 % hits
 oldTS = beh.hits;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.hits = newTS;
@@ -91,7 +94,7 @@ end
 % abort
 oldTS = beh.abort;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.abort = newTS;
@@ -100,7 +103,7 @@ end
 % miss
 oldTS = beh.miss;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.miss = newTS;
@@ -109,13 +112,13 @@ end
 % error
 oldTS = beh.error;
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     beh_photo.error = newTS;
 end
 
-%% 
+% trial data
 trial = beh.trial(:,1:4); % extract table
 trial.start     = nan(height(trial),1);
 trial.ledOn     = nan(height(trial),1);
@@ -126,7 +129,7 @@ trial.end       = nan(height(trial),1);
 % trial start
 oldTS = [beh.trial.start];
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     trial.start = newTS;
@@ -135,7 +138,7 @@ end
 % trial ledOn
 oldTS = [beh.trial.ledOn];
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     trial.ledOn = newTS;
@@ -144,7 +147,7 @@ end
 % trial firstPoke
 oldTS = [beh.trial.firstPoke];
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     trial.firstPoke = newTS;
@@ -153,7 +156,7 @@ end
 % trial soundOn
 oldTS = [beh.trial.soundOn];
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     trial.soundOn = newTS;
@@ -162,7 +165,7 @@ end
 % trial end
 oldTS = [beh.trial.end];
 if ~isempty(oldTS)
-    try newTS = firstFrameBeforeEventIndex(oldTS, time);
+    try newTS = firstFrameBeforeEventIndex(oldTS, Fs, nSamp);
     catch, newTS = nan;
     end
     trial.end = newTS;

@@ -101,6 +101,9 @@ for a = 1:length(allPath)
     end
     % behavior
     try statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
+        if statetrans.Trial(1) == 0
+            statetrans.Trial = statetrans.Trial + 1;
+        end
     catch statetrans = [];
     end
 

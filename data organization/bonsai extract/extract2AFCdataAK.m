@@ -1,4 +1,4 @@
-function beh = extract2AFCdataAK(varargin)
+function beh = extract2AFCdataAK(statetrans, varargin)
 % Extract behavioral events from bonsai output table
 % Task: 2AFC
 %
@@ -12,7 +12,7 @@ function beh = extract2AFCdataAK(varargin)
 %       cd(filePath)
 %       fileName = dir('*StateTransitions.csv');
 %       statetrans=GetBonsai_Pho_StateTransitions_Celeste(fileName.name);
-% 'photo' - logical for photometry
+% 'photo' or 'photoWS' - logical for photometry
 %       For experiments with behavioral and photometry, then use fxn
 %       'firstFrameBeforeEventIndex' to convert time stamps to "samples"
 %       for ease of alignment with photometry signal.
@@ -32,36 +32,26 @@ function beh = extract2AFCdataAK(varargin)
 %   beh.error - incorrect action (eg, soundOnLeft but lickRight)
 %   beh.noHold - does not maintain hold (eg, pokeCenter but NO soundOn)
 
-switch nargin
-    case 1
-        statetrans = varargin{1}; % assign the input table to statetrans
-        % time stamps in elapsed time:
-        elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
-        elapTime_0 = elapTime - elapTime(1);
-        TS0 = elapTime_0(:);
-
-    case 2
-        statetrans = varargin{1}; 
-        isPhoto = varargin{2};
-        if strcmpi(isPhoto,'photo')
-            compTime = [statetrans.TimeOfDay]; % computer time
-            TS0 = compTime(:);
-        else
-            elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
-            elapTime_0 = elapTime - elapTime(1);
-            TS0 = elapTime_0(:);
-        end
-        % For experiments with behavioral and photometry, then use fxn
-        % 'firstFrameBeforeEventIndex' to convert time stamps to "samples"
-        % for ease of alignment with photometry signal.
-        % Example:
+elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
+elapTime_0 = elapTime - elapTime(1);
+TS0 = elapTime_0(:);
+if nargin == 2
+    switch varargin{1}
+        case 'photo'
+            TS0 = [statetrans.TimeOfDay]; % computer time
+            % For experiments with behavioral and photometry, then use fxn
+            % 'firstFrameBeforeEventIndex' to convert time stamps to "samples"
+            % for ease of alignment with photometry signal.
+        case 'photoWS'
+            TS0 = [statetrans.PhotoTime]; 
+    end
 end
+TS0 = TS0(:);
 
 %% extract variables
-uni    = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
+% uni    = cellstr(unique(statetrans.Id)); % identify unique behavioral event names
 ids    = string(statetrans.Id); % convert to string for easier comparison
-[G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
-trialNum = 1:numel(trialNum);
+% [G, trialNum] = findgroups(statetrans.Trial); % group trials and get unique trial ids
 
 %% output variable
 beh = struct;
@@ -143,7 +133,7 @@ trialStart = TS0(strcmpi(ids, 'ITI'));
 % TRIAL END
 idx = nan(nTrial,1);
 for n = 1:nTrial
-    idx(n) = find([statetrans.Trial] == n-1, 1, 'last');
+    idx(n) = find([statetrans.Trial] == n, 1, 'last');
 end
 trialEnd = TS0(idx);
 
@@ -255,9 +245,9 @@ byTrial = table(trialNum, hitSide, lastLick, lastAct, trialStart, ledOn, firstPo
 
 % CHECK that time values sequentially increase from:
 %   start-ledOn-pokeStart-soundOn-end
-A = table2array(byTrial(:,[5:9]));      % numeric/datetime-compatible assumed
+A = table2array(byTrial(:,5:9));      % numeric/datetime-compatible assumed
 viol = any(diff(A,1,2) < 0, 2);        % true for rows that decrease somewhere
-% violRows = find(viol);
+violRows = find(viol);
 
 % SAVE INTO STRUCTURE
 beh.trial = byTrial;

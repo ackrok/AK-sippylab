@@ -38,7 +38,7 @@ for a = 1:nGroup
     nHit = sum(outcome(a, 1:2)); 
     nTr = sum(outcome(a,:));
     % nTr  = sum(outcome(a, 1:4)); % exclude aborted trials
-    dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));    
+    dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
     str  = [str,sprintf('  (%d) %s: %d/%d = %d%%. d" = %1.2f \n', ...
         a, out.date{a}, nHit, nTr, round(100*nHit/nTr), dprime)];
 end

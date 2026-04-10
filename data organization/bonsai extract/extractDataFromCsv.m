@@ -15,8 +15,9 @@ function data = extractDataFromCsv(data, frames, photoT, statetrans)
 % Anya Krok, December 2025
 
 %%
-fprintf('\n %s: ',data.ID);
+fprintf('\n%s: processing bonsai data...\n',data.ID);
 %% EXTRACT PHOTOMETRY DATA
+fprintf('    Photometry: ')
 % Only runs if photometry data is present in table format as an input and
 % 'frames' is present
 if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
@@ -38,9 +39,18 @@ if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
         signalRaw{2} = photo(photo(:,3)==ledState,[2,4]); 
     end
 
-    % store data 
-    data.acq.FPnames = {'5-HT','rDA'};
-    data.acq.nFPchan = length(signalRaw);
+    % select photometry 
+    opts = {'DA','5-HT','NE','GCaMP'};
+    choice = menu('Select photometry signal for green channel',opts);
+    data.acq.FPnames = opts(choice);
+    fprintf('green: %s. ',opts{choice});
+    if any(photo(:,3) == 4) % if used 565nm 
+        opts = {'rDA','RCaMP'};
+        choice = menu('Select photometry signal for red channel',opts);
+        data.acq.FPnames{2} = opts{choice};
+        fprintf('red: %s. ',opts{choice});
+    end
+    data.acq.nFPchan = length(data.acq.FPnames);
     cutLength = floor(size(signalRaw{1},1)/300)*300;
     for ii = 1:data.acq.nFPchan
         data.acq.time{ii} = signalRaw{ii}(1:cutLength, 1);
@@ -61,24 +71,45 @@ if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
     params.dsRate = 1; params.dsType = 2; % 1 = Bin Summing; 2 = Bin Averaging;
     params.FP.interpType = 'linear'; params.FP.fitType = 'interp';
     params.FP.winSize = 10; params.FP.winOv = 0; params.FP.basePrc = 5;
+    params.FP.software = 'bonsai';
+    params.FP.acqType = 'alternate';
     data.gen.params = params;
     
-    [data] = processFP_NPM(data,params);
-    fprintf('Photometry data processed. ');
+    try [data] = processFP_NPM(data, data.gen.params);
+    catch, fprintf('error processing. \n');
+    end
+    fprintf('DONE! \n');
 else
-    fprintf('Photometry data NOT processed. ');
+    fprintf('no data found. \n');
 end
 
 %% extract behavior data
+fprintf('    Behavior: ')
 if ~isempty(statetrans) && istable(statetrans)
-    beh = extract2AFCdataAK(statetrans);
-    data.beh = beh;
-    data.acq.beh = statetrans;
-    if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
-        data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
+    if statetrans.Trial(1) == 0
+        statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
     end
-    fprintf('Behavioral data processed.\n');
+    try
+        if isfield(data,'acq') && isfield(data.acq,'time')
+            beh = extract2AFCdataAK(statetrans,'photo'); % time stamps will be in bonsai computer time
+        else
+            beh = extract2AFCdataAK(statetrans); % time stamps will be elapsed time
+        end
+        data.beh = beh;
+        data.acq.beh = statetrans;
+        if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
+            try
+                data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
+            catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+            end
+        end
+        fprintf('DONE!\n');
+    catch
+        fprintf('error processing.');
+    end
+
 else
     data.beh = [];
-    fprintf('Behavioral data NOT processed.\n');
+    fprintf('no data found.\n');
 end
+fprintf('\n');
