@@ -31,7 +31,7 @@ for a = 1:length(filePath)
     cd(thisPath);
     fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
     T = readtable(fileBeh.name, 'VariableNamingRule', 'preserve');
-
+    if isempty(T); continue; end
     % remove last trial if does not meet parameters
     lastAct = T.("Item2.Id")(end); lastAct = lastAct{1};
     opts = {'Hit','LeftHit','RightHit','Miss','IncorrectAction','Timeout'};
@@ -39,9 +39,7 @@ for a = 1:length(filePath)
     if ~any(ismember(opts, lastAct))
         T(T.("Item2.Trial") == lastTrial, :) = []; % remove last trial
     end
-    if isempty(T)
-        continue
-    end
+    if isempty(T); continue; end
     % concatenate
     if a == 1
         Tall = T;
