@@ -39,11 +39,13 @@ for a = 1:length(filePath)
     if ~any(ismember(opts, lastAct))
         T(T.("Item2.Trial") == lastTrial, :) = []; % remove last trial
     end
-
+    if isempty(T)
+        continue
+    end
     % concatenate
     if a == 1
         Tall = T;
-    else a > 1;
+    elseif a > 1
         lastTrial = Tall.("Item2.Trial")(end); % last trial number for concatenated table
         if T.("Item2.Trial")(1) == 0
             lastTrial = lastTrial + 1; % account for zero index
@@ -52,7 +54,6 @@ for a = 1:length(filePath)
         Tall = [Tall; T];
     end     
     toc
-
     fprintf('Table %d of %d concatenated \n',a,length(filePath));
 end
 

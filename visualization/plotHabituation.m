@@ -36,11 +36,13 @@ str = sprintf('\n%s performance (#hits/#trials) \n',out.mouse);
 outcome = table2array(out.outcome);
 for a = 1:nGroup
     nHit = sum(outcome(a, 1:2)); 
-    nTr = sum(outcome(a,:));
-    % nTr  = sum(outcome(a, 1:4)); % exclude aborted trials
+    abortper = round(100*outcome(a,5)./sum(outcome(a,:)));
+    nTr  = sum(outcome(a, 1:4)); % exclude aborted trials
     dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
-    str  = [str,sprintf('  (%d) %s: %d/%d = %d%%. d" = %1.2f \n', ...
-        a, out.date{a}, nHit, nTr, round(100*nHit/nTr), dprime)];
+    str  = [str,sprintf('  (%d) %s: %d/%d = %d%%. d" = %1.2f. abort = %d/%d = %d%%.\n', ...
+        a, out.date{a}, nHit, nTr, round(100*nHit/nTr), ...
+        dprime, ...
+        outcome(a,5), sum(outcome(a,:))), abortper)];
 end
 fprintf('%s \n',str);
 
@@ -61,7 +63,7 @@ legend(lbl, 'direction','reverse', 'location', 'southwest');
 xlabel('recording date'); xticklabels(out.date);  
 ylabel('# trials'); 
 ax(p).YLim(1) = 0; ax(p).YLim(2) = max(200, ax(p).YLim(2));
-str = sprintf('%s - total #hits per #trials \n',out.mouse);
+str = sprintf('%s - total #hits / total #trial \n',out.mouse);
 for a = 1:nGroup
     nHit = sum(outcome(a, 1:2)); 
     nTr = sum(outcome(a,:));

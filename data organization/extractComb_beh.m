@@ -54,6 +54,9 @@ for a = 1:length(filePath)
         fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
     end
     statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
+    if statetrans.Trial(1) == 0
+        statetrans.Trial = statetrans.Trial + 1;
+    end
     beh = extract2AFCdataAK(statetrans);
 
     str = thisPath; % string with file path
