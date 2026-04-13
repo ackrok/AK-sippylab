@@ -118,10 +118,9 @@ for j = 1:length(uniMouse)
         iri{a} = [beh.hits(1)/adj; iri{a}]; % add delay to 1st reward
 
         % Last time stamp
-        try endTime(a) = beh.trialEnd(end);
-        catch endTime(a) = beh.trial.end(end); 
+        try endTime(a) = beh.trialEnd(end)/60;
+        catch endTime(a) = beh.trial.end(end)/60; 
         end
-        endTime = endTime(:)./60; % convert to minutes
     end
    
     % Load into output structure
@@ -137,6 +136,3 @@ for j = 1:length(uniMouse)
     out(j).iri     = iri;
     out(j).endTime = endTime(:);
 end
-   
-end
-    

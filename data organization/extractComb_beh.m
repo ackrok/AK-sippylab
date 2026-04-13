@@ -31,6 +31,7 @@ switch nargin
 end
 
 %%
+fprintf('Select folder(s) with Bonsai behavioral data in pop-up window.\n');
 [filePath] = uigetdir2; % Essentially multiselect directories, returns filePath in cell array
 
 %%

@@ -34,15 +34,18 @@ tic
 %% 
 str = sprintf('\n%s performance (#hits/#trials) \n',out.mouse);
 outcome = table2array(out.outcome);
+nGroup = size(out.date,1);
 for a = 1:nGroup
     nHit = sum(outcome(a, 1:2)); 
     abortper = round(100*outcome(a,5)./sum(outcome(a,:)));
     nTr  = sum(outcome(a, 1:4)); % exclude aborted trials
     dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
-    str  = [str,sprintf('  (%d) %s: hit rate = %d/%d = %d%%. d" = %1.2f. abort = %d/%d = %d%%.\n', ...
+    str  = [str, ...
+        sprintf('  (%d) %s: hit rate = %d/%d (%d%%). d" = %1.2f. abort = %d/%d (%d%%). end at %d min.\n', ...
         a, out.date{a}, nHit, nTr, round(100*nHit/nTr), ...
         dprime, ...
-        outcome(a,5), sum(outcome(a,:)), abortper)];
+        outcome(a,5), sum(outcome(a,:)), abortper, ...
+        round(out.endTime(a)))];
 end
 fprintf('%s \n',str);
 
