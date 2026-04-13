@@ -18,7 +18,7 @@ function [data] = alignBehTStoPhotoTS(data)
 %           >> beh = extract2AFCdataAK(statetrans, 'photo');
 %
 % OUTPUT
-% - 'TS': timestamp as index relative to photometry signal.
+% - 'TS': timestamp as index relative to photometry signal at 50 Hz.
 %       This is the frame in photometry signal that is
 %       immediately BEFORE the behavioral event timestamp
 %
@@ -48,7 +48,7 @@ beh_photo.miss  = [];
 beh_photo.error = [];
 
 %%
-Fs = data.gen.acqFs;
+Fs = data.gen.Fs;
 nSamp = numel(data.acq.FP{1});
 
 %%

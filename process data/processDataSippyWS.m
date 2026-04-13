@@ -70,6 +70,8 @@ tic
 dataWS = extractH5_WS(fullfile(h5Path, h5Name));
 data   = createDataStruct(dataWS, mouse, date);
 data.gen.params = params; % add params to data structure
+data.gen.params.acqFs = data.gen.acqFs; % overwrite with actual acquision sampling rate
+data.gen.params.dsRate = data.gen.params.acqFs/50; % overwrite
 data.gen.startSec = data.gen.startTime(4)*3600 + data.gen.startTime(5)*60 + data.gen.startTime(6);
 toc
 %% photometry: process

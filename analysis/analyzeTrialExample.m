@@ -33,87 +33,111 @@ win_base = [win(1)-1 win(1)]; % for baseline adjusting photometry signal
 bin_peth = 0.05; % bin width, in seconds, for aligning licks to events
 
 %% Pull relevant data
-signal  = comb.FP; 
 Fs      = comb.Fs; 
 beh     = comb.beh;
+nFP     = length(comb.FPnames);
 
-%% Behavioral events
-% NOTE: CONSIDER CHANGING TO beh.lightOn for future
-event = beh.lickStartHitTrial; % alignment to mouse self-initiation of rewarded trial
+%% Rewarded trials
+% For rewarded trials, alignment of photometry to 
+% (1) first center poke (when mouse self-initiates trial) 
+% and (2) reward delivery.
+% Note that behavior event times are in samples relative to processed
+% photometry sampling frequency, usually 50 Hz.
+nTrials = height(beh.trial);
+nHits   = height(beh.hitT);
+idxHits = beh.hitT.trial; % index for rewarded trials
+tr_start = beh.trial.start; % trial start
+tr_end   = beh.trial.end;   % trial end
+firstPoke = beh.trial.firstPoke; % alignment to mouse self-initiation of rewarded trial
+soundOn   = beh.trial.soundOn; 
+hit = beh.hitT.hits;
+rewLatency = beh.hitT.rewLatency; % latency from firstPoke to Hit
+if all(rewLatency == 0); rewLatency(:) = nan; end 
 
-hitLatency = (beh.hits - event)./Fs; % latency between event and Hit
-if all(hitLatency == 0); hitLatency(:) = nan; end 
+if isnan(beh.trial.start(1))
+    rmv = find(isnan(beh.trial.start)); % index of first trial that starts after photometry
+    idxHits(ismember(idxHits, rmv)) = nan;
+end
+idxHitsR = idxHits(strcmpi(beh.hitT.side,'right'));
+idxHitsL = idxHits(strcmpi(beh.hitT.side,'left'));
+idxSide  = {idxHitsR, idxHitsL};
 
 %% Analysis: extract all licks for rewarded trials
-nTrials = size(beh.lastAct,1);   % number of trials
-nHits   = length(beh.hits);      % number of rewarded trials
-idxHits = find(beh.lastAct.lastAct == "Hit"); % index rewarded trials
-
 % for some recordings with photometry, trial start may coincide with start
 % of photometry and thus 1st trial will remain NaN due to no photometry
 % frames being documented prior to trial start time
-if isnan(beh.trialStart(1))
-    beh.trialStart(1) = 1;  % adjustment for above
-end
 
 hitLicks = cell(nHits,2); % initialize variable
-for n = 1:nHits
+for n = 1:numel(idxHitsR); s = 1; % right
+    if isnan(idxHitsR(n)); hitLicks{n,s} = nan; continue; end
     try
-        idxSort = find((beh.lickRight > beh.trialStart(idxHits(n))) ...
-                & (beh.lickRight < beh.trialEnd(idxHits(n)))); % licks R
-        hitLicks{n,1} = beh.lickRight(idxSort);
+        idxSort = find((beh.lickRight > tr_start(idxHitsR(n))) ...
+                & (beh.lickRight < tr_end(idxHitsR(n)))); 
+        hitLicks{n,s} = beh.lickRight(idxSort);
     catch
-        hitLicks{n,1} = nan;
+        hitLicks{n,s} = nan;
     end
+end
+for n = 1:numel(idxHitsL); s = 2; % left
+    if isnan(idxHitsL(n)); hitLicks{n,s} = nan; continue; end
     try
-        idxSort = find((beh.lickLeft > beh.trialStart(idxHits(n))) ...
-                & (beh.lickRight < beh.trialEnd(idxHits(n)))); % licks L
-        hitLicks{n,2} = beh.lickRight(idxSort);
+        idxSort = find((beh.lickLeft > tr_start(idxHitsL(n))) ...
+                & (beh.lickLeft < tr_end(idxHitsL(n))));
+        hitLicks{n,s} = beh.lickLeft(idxSort);
     catch
-        hitLicks{n,2} = nan;
+        hitLicks{n,s} = nan;
     end
 end
 
-%% Initiate variables for storing data
-evLicks = cell(1,2); % store values, licks to event
-evPhoto = cell(1,2); % store values, photometry to event
-evPhotoZ = evPhoto; % z-scored
-
 %% Align licks to events
-pethSide = cell(1,2); 
+pethLicks = cell(1,2); 
 for s = 1:2
-    pethSide{s} = nan(-1 + length(win(1):bin_peth:win(2)),nHits); % nans
+    pethLicks{s} = nan(-1 + length(win(1):bin_peth:win(2)),nHits); % nans
     for n = 1:nHits
         if ~isnan(hitLicks{n,s})
             % extract peri-event histogram, aligning licks to event
-            peth = getClusterPETH(hitLicks{n,s}./Fs, event(n)./Fs, bin_peth, win);
-            pethSide{s}(:,n) = peth.cts{1}; % store values
+            peth = getClusterPETH(hitLicks{n,s}./Fs, firstPoke(idxSide{s})./Fs, bin_peth, win);
+            pethLicks{s}(:,n) = peth.cts{1}; % store values
         end
     end
-    pethSide{s}(pethSide{s} > 1) = 1; % all lick bins set to 1
-end
-
-% index for R vs L ports w.r.t. rewarded trials 
-idxSide = cell(1,2);
-idxSide{1} = find(ismember(idxHits, find(beh.lastAct.lastLick == "LickRight")));
-idxSide{2} = find(ismember(idxHits, find(beh.lastAct.lastLick == "LickLeft")));
-
-% Align licks to behavioral event
-for s = 1:2
-    nSide = length(idxSide{s}); % number of trials for this port
-    pethMat = pethSide{s}; % extract from stored values
-    pethMat = pethMat(:,idxSide{s}); % restrict to R or L side ports
-    evLicks{s} = pethMat; % store values
+    pethLicks{s}(pethLicks{s} > 1) = 1; % all lick bins set to 1
 end
 
 %% Align photometry signals to behavioral event
-for b = 1:2
-    [sta, time_sta, staZ] = getSTA(signal{b}, event./Fs, Fs, win);
-    sta_base = getSTA(signal{b}, event./Fs, Fs, win_base);
-    sta = sta - nanmean(sta_base,1);
-    evPhoto{b} = sta; % store values
-    evPhotoZ{b} = staZ; 
+opts = {'rightHit','leftHit','miss','incorrectAction','abort'};
+photo2event = cell(2+length(opts),nFP); % store values, photometry to event
+
+for b = 1:nFP
+    signal = comb.FP{b};
+
+    event = firstPoke(idxHits)./Fs; % firstPoke for rewarded trials
+    sta = getSTA(signal, event, Fs, win);
+    sta_base = getSTA(signal, event, Fs, win_base);
+    sta = sta - mean(sta_base,1,'omitnan');
+    photo2event{1,b} = sta;
+
+    event = hit./Fs; % reward delivery
+    sta = getSTA(signal, event, Fs, win);
+    sta_base = getSTA(signal, event, Fs, win_base);
+    sta = sta - mean(sta_base,1,'omitnan');
+    photo2event{2,b} = sta;
+    
+    for ii = 1:length(opts)
+        j = strcmpi(beh.trial.lastAct, opts{ii});
+        if any(j)
+            event = soundOn(j)./Fs; % soundOn by outcome
+            sta = getSTA(signal, event, Fs, win);
+            sta_base = getSTA(signal, event, Fs, win_base);
+            sta = sta - mean(sta_base,1,'omitnan');
+            photo2event{2+ii,b} = sta;
+        else
+            photo2event{2+ii,b} = nan;
+        end
+    end
 end
+time_sta = win(1) : 1/Fs : win(2);
+lbls = {'pokeRew','reward','soundOnHitR','soundOnHitL','soundOnMiss','soundOnError','soundOnAbort'};
+T = cell2table(photo2event.', 'VariableNames', lbls);
 
 %% store
 a = 1; 
@@ -121,12 +145,13 @@ out = struct;
 out(a).mouse = comb.mouse;
 out(a).date  = comb.date;
 out(a).win   = win;
-out(a).evLicks  = evLicks;
-out(a).evPhoto  = evPhoto;
-out(a).evPhotoZ = evPhotoZ;
-out(a).timePeth = peth.time;
-out(a).timeSta  = time_sta;
-out(a).hitLat   = hitLatency;
-out(a).idxSide  = idxSide;
-out(a).lblSide  = {'lick R','lick L'};
+out(a).evLicks  = pethLicks;
+out(a).evPhoto  = T;
+out(a).timePeth = peth.time(:);
+out(a).timeSta  = time_sta(:);
+out(a).rewLat   = rewLatency(:);
+out(a).idxSide  = {idxHitsR, idxHitsL};
+out(a).lblSide  = {'right','left'};
 out(a).lblPhoto = comb.FPnames; 
+
+

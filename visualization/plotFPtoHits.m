@@ -12,98 +12,94 @@
 % 
 % Anya Krok, Dec 2025
 
-if ~exist('comb')
+if ~exist('comb','var')
     error('ERROR: comb structure does not exist in workspace.');
 end
 
-%% Analyze data
-opts = fieldnames(comb(1).beh); % options are all behavioral events names
-choice = menu('Select analysis',opts);
-lbl = opts{choice}; % name of behavioral event to use for labeling
+%%
+win = [-1 5]; % STA window, in seconds
+winBase = [win(1)-1, win(1)]; % baseline window, in seconds
+out = analyzeFP_STA(comb, win, winBase);
 
-winSta = [-3 3]; % STA window, in seconds
-winBase = [-6 -3]; % baseline window, in seconds
-
-nFP = length(comb(1).FPnames);
-alignAvg = cell(1,nFP);
-alignAll = cell(length(comb),nFP);
-for a = 1:length(comb) % iterate over recordings
-    for b = 1:nFP % iterate over photometry signals
-        signal = comb(a).FP{b}; % extract signal
-        ev = getfield(comb(a).beh, opts{choice}); % event times as per menu choice
-        ev = ev./comb(a).Fs; % convert to seconds
-        [sta, staTime] = getSTA(signal, ev, comb(a).Fs, winSta);
-        [base]         = getSTA(signal, ev, comb(a).Fs, winBase);    
-        base = nanmean(base,1); % average across entire baseline window to create vector of length(nHits)
-        staAdj = sta - base; % subtract baseline
-        alignAll{a,b} = staAdj; 
-        alignAvg{b}(:,a) = nanmean(staAdj,2);
-    end
-end
-fprintf('STA analysis done.\n')
+time = out(1).time; % time vector
+nFP  = out(1).nFP; % number of photometry signals
+FPnames = out(1).FPnames; % photometry signal IDs
+uni = unique({out.mouse}); nUni = length(uni);
 
 %% Group analyzed data based on unique mouse IDs
-[uni,~,idxMap] = unique({comb.mouse});
-alignUni = cell(length(uni),nFP);
-for ii = 1:length(uni)
-    match = find(strcmp({comb.mouse}, uni{ii})); % idx of recordings with same unique mouse ID
-    for b = 1:nFP
-        pull = alignAll(match, b);
-        alignUni{ii,b} = horzcat(pull{:}); % concatenate data
-    end
-end
+% [uni,~,idxMap] = unique({comb.mouse});
+% alignUni = cell(length(uni),nFP);
+% for ii = 1:length(uni)
+%     match = find(strcmp({comb.mouse}, uni{ii})); % idx of recordings with same unique mouse ID
+%     for b = 1:nFP
+%         pull = alignAll(match, b);
+%         alignUni{ii,b} = horzcat(pull{:}); % concatenate data
+%     end
+% end
 
 %% Plot by photometry signal
-FPnames = comb(1).FPnames;
+thisMouse = menu('Select mouse: ',uni);
+match = find(strcmp({out.mouse},uni{thisMouse}));
+sub = out(match);
+
+opts = out(1).sta.Properties.VariableNames;
+idxEvent = menu('Select event: ',opts);
+lbl = opts{idxEvent};
+
 opts2 = cell(nFP+1,1);
-for b = 1:nFP; opts2{b} = [FPnames{b},' to ',lbl,', by mouse']; end
+for idxFP = 1:nFP; opts2{idxFP} = [FPnames{idxFP},' to ',lbl,', by mouse']; end
 opts2{nFP+1} = ['all photometry to ',lbl,', averaged'];
-choice2 = listdlg('ListString',opts2);
+choice = listdlg('ListString',opts2,'ListSize',[300 100],'PromptString','Select photometry to plot:');
 
-for ii = 1:length(choice2)
-    switch choice2(ii)
+for ii = 1:length(choice)
+    switch choice(ii)
         case 1
-            b = 1; clr = 'g';
-            fig(choice2(ii)) = figure;
-            spX = floor(sqrt(length(comb))); spY = ceil(length(comb)/spX);
-            for a = 1:length(comb)
+            idxFP = 1; clr = 'g';
+            fig = figure; theme(fig,'light');
+            spX = floor(sqrt(length(match))); spY = ceil(length(match)/spX);
+            for a = 1:length(sub)
                 subplot(spX,spY,a); hold on
-                shadederrbar(staTime, nanmean(alignAll{a,b},2), SEM(alignAll{a,b},2),clr);
+                mat = sub(a).sta{idxFP, idxEvent}; mat = mat{1};
+                shadederrbar(time, mean(mat,2,'omitnan'), SEM(mat,2),clr);
                 xline(0);
                 title(sprintf('%s-%s: (%d trials)',...
-                    comb(a).mouse,comb(a).date,size(alignAll{a,b},2)));
+                    sub(a).mouse,sub(a).date,size(mat,2)));
                 xlabel(sprintf('time to %s (s)',lbl)); 
-                ylabel(sprintf('%s FP (dF/F)',FPnames{b}));
+                ylabel(sprintf('%s FP (dF/F)',FPnames{idxFP}));
             end
+        
         case 2
-            b = 2; clr = 'r';
-            fig(choice2(ii)) = figure;
-            spX = floor(sqrt(length(comb))); spY = ceil(length(comb)/spX);
-            for a = 1:length(comb)
+            idxFP = 2; clr = 'r';
+            fig = figure; theme(fig,'light');
+            spX = floor(sqrt(length(match))); spY = ceil(length(match)/spX);
+            for a = 1:length(sub)
                 subplot(spX,spY,a); hold on
-                shadederrbar(staTime, nanmean(alignAll{a,b},2), SEM(alignAll{a,b},2),clr);
+                mat = sub(a).sta{idxFP, idxEvent}; mat = mat{1};
+                shadederrbar(time, mean(mat,2,'omitnan'), SEM(mat,2),clr);
                 xline(0);
                 title(sprintf('%s-%s: (%d trials)',...
-                    comb(a).mouse,comb(a).date,size(alignAll{a,b},2)));
-                xlabel(sprintf('time to %s (s)',lbl));
-                ylabel(sprintf('%s FP (dF/F)',FPnames{b}));
+                    sub(a).mouse,sub(a).date,size(mat,2)));
+                xlabel(sprintf('time to %s (s)',lbl)); 
+                ylabel(sprintf('%s FP (dF/F)',FPnames{idxFP}));
             end
-        case 3
-            fig(choice2(ii)) = figure;
-            for b = 1:length(FPnames)
-                subplot(2,nFP,b);
-                plot(staTime, alignAvg{b});
-                xline(0);
-                title(sprintf('%s to %s (n = %d)',comb(1).FPnames{b},lbl,size(alignAvg{b},2)))
-                xlabel(sprintf('time to %s (s)',lbl)); ylabel('FP (dF/F)');
-                legend({comb.mouse});
 
-                subplot(2,nFP,b+2);
-                switch b; case 1; clr = 'g'; case 2; clr = 'r'; end
-                shadederrbar(staTime, nanmean(alignAvg{b},2), SEM(alignAvg{b},2), clr);
-                xline(0);
-                xlabel(sprintf('time to %s (s)',lbl)); ylabel('FP (dF/F)');
-                legend(FPnames{b});
-            end
+        case 3
+            % fig = figure; theme(fig,'light');
+            % for idxFP = 1:length(FPnames)
+                % subplot(2,nFP,idxFP);
+                % edit to have averages
+                % plot(staTime, alignAvg{idxFP});
+                % xline(0);
+                % title(sprintf('%s to %s (n = %d)',comb(1).FPnames{idxFP},lbl,size(alignAvg{idxFP},2)))
+                % xlabel(sprintf('time to %s (s)',lbl)); ylabel('FP (dF/F)');
+                % legend({comb.mouse});
+                % 
+                % subplot(2,nFP,idxFP+2);
+                % switch idxFP; case 1; clr = 'g'; case 2; clr = 'r'; end
+                % shadederrbar(staTime, mean(alignAvg{idxFP},2,'omitnan'), SEM(alignAvg{idxFP},2), clr);
+                % xline(0);
+                % xlabel(sprintf('time to %s (s)',lbl)); ylabel('FP (dF/F)');
+                % legend(FPnames{idxFP});
+            %end
     end
 end

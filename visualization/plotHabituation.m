@@ -31,23 +31,25 @@ out = analyzeBeh_2AFC(comb);
 nGroup = size(out.date,1);
 
 tic
-%% 
-str = sprintf('\n%s performance (#hits/#trials) \n',out.mouse);
+
+%%
+str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
 outcome = table2array(out.outcome);
-nGroup = size(out.date,1);
-for a = 1:nGroup
-    nHit = sum(outcome(a, 1:2)); 
-    abortper = round(100*outcome(a,5)./sum(outcome(a,:)));
-    nTr  = sum(outcome(a, 1:4)); % exclude aborted trials
-    dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
-    str  = [str, ...
-        sprintf('  (%d) %s: hit rate = %d/%d (%d%%). d" = %1.2f. abort = %d/%d (%d%%). end at %d min.\n', ...
-        a, out.date{a}, nHit, nTr, round(100*nHit/nTr), ...
-        dprime, ...
-        outcome(a,5), sum(outcome(a,:)), abortper, ...
-        round(out.endTime(a)))];
-end
-fprintf('%s \n',str);
+nHit   = sum(outcome(:,1:2), 2);
+nTr    = sum(outcome(:,1:4), 2);           % exclude aborted trials
+abortN = outcome(:,5);
+abortTot = sum(outcome, 2);
+abortPer = round(100 * abortN ./ abortTot);
+dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
+
+lines = arrayfun(@(a) sprintf(...
+    '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. abort = %d/%d (%d%%). end at %d min.\n', ...
+    a, out.date{a}, nHit(a), nTr(a), round(100*nHit(a)/nTr(a)), ...
+    dprime(a), abortN(a), abortTot(a), abortPer(a), round(out.endTime(a)) ), ...
+    (1:nGroup).', 'UniformOutput', false);
+
+str = [str, strcat(lines{:})];
+fprintf('%s\n', str);
 
 %%
 fig = figure; theme(fig,'light');
@@ -66,20 +68,20 @@ legend(lbl, 'direction','reverse', 'location', 'southwest');
 xlabel('recording date'); xticklabels(out.date);  
 ylabel('# trials'); 
 ax(p).YLim(1) = 0; ax(p).YLim(2) = max(200, ax(p).YLim(2));
-str = sprintf('%s - total #hits / total #trial \n',out.mouse);
-for a = 1:nGroup
-    nHit = sum(outcome(a, 1:2)); 
-    nTr = sum(outcome(a,:));
-    % nTr  = sum(outcome(a, 1:4)); % exclude aborted trials
-    str  = [str,sprintf('(%d)%d/%d. ', a, nHit, nTr)];
-end
+
+str = sprintf('%s - total #hits / total #trial\n', out.mouse);
+nHit = sum(outcome(:,1:2), 2);
+nTr  = sum(outcome, 2);
+% nTr = sum(outcome(:,1:4), 2); % exclude aborted trials
+parts = compose('(%d)%d/%d. ', (1:nGroup).', nHit, nTr);   % string array, one element per group
+str = [str, char(strjoin(parts, ''))];
 title(str);
 
 %% (2) lick vector to reward
 p = 2;
 
-bin = 0.1; % bin width, in seconds
-win = [-1 1]; % window, in seconds
+% bin = 0.1; % bin width, in seconds
+% win = [-1 1]; % window, in seconds
 lickHit = table2cell(out.lick);
 lickTime = out.lickTime; % extract time vector for plotting
 
@@ -114,9 +116,8 @@ xlabel('recording date'); xticklabels(out.date);
 ylabel('time to reward (min)');
 legend(lbl,'location','west');
 str = 'last rew at (min):';
-for a = 1:nGroup
-    str = [str,sprintf(' (%d) %d.', a, round(rewTime(a,2)))];
-end
+parts = compose(' (%d) %d.', (1:nGroup).', round(rewTime(:,2)));
+str = [str, char(strjoin(parts, ''))];
 title(str);
 
 %% (4) time to soundOn from ledOn
@@ -135,9 +136,8 @@ xlabel('recording date'); xticklabels(out.date);
 ylabel('time from LED-on (s)');
 ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
 str = 'ledOn to hold(s):';
-for a = 1:nGroup
-    str = [str,sprintf(' (%d) %.1f.', a, hold_mu(a))];
-end
+parts = compose(' (%d) %.1f.', (1:nGroup).', hold_mu(:));
+str = [str, char(strjoin(parts, ''))];
 title(str);
 
 %% (5) time to hit from soundOn
@@ -163,9 +163,8 @@ ylabel('time from sound-on (s)'); yl = ylim; ylim([0 ceil(yl(2))]);
 ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
 legend; legend('Location','southwest');
 str = 'tone to hit(s):';
-for a = 1:nGroup
-    str = [str,sprintf(' (%d)%.1f/%.1f.', a, toneR_mu(a), toneL_mu(a))];
-end
+parts = compose(' (%d)%.1f/%.1f.', (1:nGroup).', toneR_mu(:), toneL_mu(:));
+str = [str,char(strjoin(parts, ''))];
 title(str);
 
 %% (6) inter-reward intervals
@@ -174,11 +173,11 @@ ax(p) = subplot(spX, spY, p); hold on
 
 iri = out.iri;
 iri_mu = cellfun(@mean, iri);
-iri_sem = cellfun(@std, iri)./sqrt(cellfun(@length, iri));
-iri_min = cellfun(@min, iri);
+% iri_sem = cellfun(@std, iri)./sqrt(cellfun(@length, iri));
+% iri_min = cellfun(@min, iri);
 
 nDate = length(out.date);
-slope = [];
+slope = nan(nDate,1);
 for k = 1:nDate
     x = comb(k).beh.hits(:);
     y = out.iri{k}(:); 
@@ -188,7 +187,7 @@ for k = 1:nDate
     h.Annotation.LegendInformation.IconDisplayStyle = 'off';
     mdl = fitlm(x, y);     % linear model
     xs = sort(x);   % sorted x for plotting
-    ys = predict(mdl, xs); % fitted mean values
+    % ys = predict(mdl, xs); % fitted mean values
     [ypred, yci] = predict(mdl, xs, 'Alpha', 0.05); % 95% CI
     h = plot(xs, ypred, '-', 'Color', clr(k,:), 'LineWidth', 1.5);
     h.Annotation.LegendInformation.IconDisplayStyle = 'off';
@@ -211,9 +210,8 @@ legend('Location','northwest');
 % ylabel('inter-reward interval (s)'); 
 % ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
 str = 'mean IRI(s):';
-for a = 1:nGroup
-    str = [str,sprintf(' (%d) %.1f.', a, iri_mu(a))];
-end
+parts = compose(' (%d) %.1f.', (1:nGroup).', iri_mu(:));
+str = [str, char(strjoin(parts,''))];
 title(str);
 
 toc
