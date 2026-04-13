@@ -36,16 +36,17 @@ tic
 str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
 outcome = table2array(out.outcome);
 nHit   = sum(outcome(:,1:2), 2);
-nTr    = sum(outcome(:,1:4), 2);           % exclude aborted trials
+nTr    = sum(outcome(:,1:4), 2);     % exclude aborted trials
 abortN = outcome(:,5);
 abortTot = sum(outcome, 2);
 abortPer = round(100 * abortN ./ abortTot);
 dprime = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
+bias   = outcome(:,1)./outcome(:,2); % bias = right / left
 
 lines = arrayfun(@(a) sprintf(...
-    '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. abort = %d/%d (%d%%). end at %d min.\n', ...
+    '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. bias = %.1f. abort = %d/%d (%d%%). end at %d min.\n', ...
     a, out.date{a}, nHit(a), nTr(a), round(100*nHit(a)/nTr(a)), ...
-    dprime(a), abortN(a), abortTot(a), abortPer(a), round(out.endTime(a)) ), ...
+    dprime(a), bias(a), abortN(a), abortTot(a), abortPer(a), round(out.endTime(a)) ), ...
     (1:nGroup).', 'UniformOutput', false);
 
 str = [str, strcat(lines{:})];
