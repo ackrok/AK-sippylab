@@ -112,4 +112,3 @@ else
     data.beh = [];
     fprintf('no data found.\n');
 end
-fprintf('\n');

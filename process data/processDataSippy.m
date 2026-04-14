@@ -26,8 +26,6 @@
 
 %%
 for a = 1:length(allPath)
-    fprintf('Identifying .csv files... ')
-    tic
     thisPath = allPath{a};
     cd(thisPath);
     fileBeh = dir('State*.csv'); % check for .csv files starting with "State..."
@@ -54,7 +52,6 @@ for a = 1:length(allPath)
             break % exit loop when count exceeds 3
         end
     end
-    toc
     filePath = pwd; % return current folder as string
     
     %% convert fileName into mouse and date IDs
@@ -97,10 +94,7 @@ for a = 1:length(allPath)
     data.mouse = mouse; 
     data.date = date;
     data.ID = sprintf('%s-%s',mouse,date); 
-    fprintf('Extracting data from .csv files...');
-    tic
     data = extractDataFromCsv(data, frames, photoT, statetrans);
-    toc
 
     %% start time
     [~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts
@@ -121,7 +115,7 @@ for a = 1:length(allPath)
     %% save file in same folder where .csv files are located
     saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
     save(fullfile(filePath, saveName), 'data');
-    fprintf(' %s: SAVED data.mat \n', data.ID);
+    fprintf('%s: saved data.mat \n \n', data.ID);
     switch cohortSave
         case 'yes'
             if ~exist('cohortPath','var')

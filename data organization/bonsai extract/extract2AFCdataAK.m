@@ -1,9 +1,10 @@
 function beh = extract2AFCdataAK(statetrans, varargin)
-% Extract behavioral events from bonsai output table
-% Task: 2AFC
+% Extract behavioral events from bonsai output table for 2AFC task
+% ACTIVE as of April 2026
 %
-% beh = extract2AFCdataAK(statetrans)
-% beh = extract2AFCdataAK(statetrans, 'photo')
+% beh = extract2AFCdataAK(statetrans);
+% beh = extract2AFCdataAK(statetrans, 'photo'); % for photometry in Bonsai
+% beh = extract2AFCdataAK(statetrans, 'photoWS'); % for photometry in Wavesurfer
 %
 % INPUT
 % 'statetrans' - table made from StateTransitions.csv
@@ -30,7 +31,7 @@ function beh = extract2AFCdataAK(statetrans, varargin)
 % Updated by Anya Krok, Mar 2026 to add additional error outcomes
 %   beh.miss - no response within reward window
 %   beh.error - incorrect action (eg, soundOnLeft but lickRight)
-%   beh.noHold - does not maintain hold (eg, pokeCenter but NO soundOn)
+%   beh.abort - does not maintain hold (eg, pokes center but NO soundOn)
 
 elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
 elapTime_0 = elapTime - elapTime(1);
