@@ -7,60 +7,54 @@
 if ~exist('out','var') || exist('out','var') && ~isfield(out,'evLicks')
     a = 1;
     win = [-1 5];
-    out = analyzeTrialExample(comb(a), win);
+    out = analyzeFP_STA(comb(a), win);
 end
 
-%% Plot licks to behavioral event
-figure; 
+%% PLOT
+fig = figure; theme(fig,'light');
+win = [-1 5];
+% Top row:
+% Plot licks aligned to poke (t = 0) with red dot at time of reward
+% delivery, for rewarded trials
 for s = 1:2
-    try
-        mat     = out.evLicks{s}; % licks aligned to event for this port
-        nSide   = length(out.idxSide{s}); % number of hits at this port
-        rewLat  = out.rewLat(out.idxSide{s}); % hitLatency only for this port
-        [~,idx] = sort(rewLat); % sort by latency
-        
-        subplot(2,2,s); hold on
-        [X, Y] = meshgrid(out.timePeth, 1:nSide);
-        pcolor(X, Y, mat(:,idx)', 'EdgeColor', 'none'); % colorplot
-        c = colorbar; c.Label.String = 'licks';
-        xline(0,'LineWidth',2); % xline at 0, representing trial start
-        scatter(rewLat(idx), 1:nSide, 10, 'filled', 'r'); % plot hit licks
-        ylabel('trial (#)'); ylim([0 nSide]); xlim(out.win);
-        title([out.lblSide{s},' - rewarded']);
-    catch
-        fprintf('Unable to plot %s. \n', out.lblSide{s});
-        delete(subplot(2,2,s));
-    end
     mat     = out.evLicks{s}; % licks aligned to event for this port
-    nSide   = length(out.idxSide{s}); % number of hits at this port
-    rewLat  = out.rewLat(out.idxSide{s}); % hitLatency only for this port
-    [~,idx] = sort(rewLat); % sort by latency
-    if nSide == 0; continue; end % exit loop if no data
+    rewLat  = out.rewLat{s};  % hitLatency only for this port
+    rmv     = isnan(mat(1,:));
+    mat(:,rmv) = []; rewLat(rmv) = []; % if NaNs in lick matrix, remove from plot
+    nSide   = size(mat,2); % number of hits for this port
+    [~,idx] = sort(rewLat); % sort by latency for plotting
     
     subplot(2,2,s); hold on
     [X, Y] = meshgrid(out.timePeth, 1:nSide);
     pcolor(X, Y, mat(:,idx)', 'EdgeColor', 'none'); % colorplot
     c = colorbar; c.Label.String = 'licks';
-    xline(0,'LineWidth',2); % xline at 0, representing trial start
+    xline(0,'LineWidth',2,'Color','r'); % xline at 0, representing trial start
     scatter(rewLat(idx), 1:nSide, 10, 'filled', 'r'); % plot hit licks
-    ylabel('trial (#)'); ylim([0 nSide]); xlim(out.win);
-    title([out.lblSide{s},' - rewarded']);
+    xlabel('time to center poke (s)'); 
+    xlim(win);
+    ylabel(sprintf('trial - %s rewarded',out.lblSide{s})); 
+    ylim([0 nSide]); 
+    title(sprintf('%s-%s: lick to poke (%s rew)',out.mouse,out.date,out.lblSide{s}));
 end
 
-%% Plot photometry signals to behavioral event
-rewLat = out.rewLat; % latency to hit for all rewarded trials
-[~,idx] = sort(rewLat); % sort by latency for all rewarded trials
-nHits = length(out.rewLat); % number of hits
-for b = 1:2
-    mat = out.evPhoto.pokeRew(b); % photometry to first poke for rewarded trials
+% Bottom row:
+% Plot photomtery aligned ot poke (t = 0) with red dot at time of reward
+% delivery for all rewarded trials, by photometry signals
+for b = 1:length(out.lblPhoto)
+    mat = out.evPhoto.pokeRew{b,:}; % photometry to first poke for rewarded trials
+    rewLat = vertcat(out.rewLat{:}); % combine all rewarded trials
+    rmv     = isnan(mat(1,:));
+    mat(:,rmv) = []; rewLat(rmv) = []; % if NaNs in lick matrix, remove from plot
+    [~,idx] = sort(rewLat); % sort by latency for plotting
+    nHits = length(rewLat); % number of hits
 
     subplot(2,2,b+2); hold on
-    [X, Y] = meshgrid(out.timeSta, 1:nHits);
+    [X, Y] = meshgrid(out.time, 1:nHits);
     pcolor(X, Y, mat(:,idx)', 'EdgeColor', 'none');
     c = colorbar; c.Label.String = '(dF/F)';
-    xline(0,'LineWidth',2);
+    xline(0,'LineWidth',2,'Color','r');
     scatter(rewLat(idx), 1:nHits, 10, 'filled', 'r');
-    ylabel('trial (#)'); ylim([0 nHits]); xlim(out.win);
-    xlabel('time to center poke (s)'); 
-    title(sprintf('%s-%s: %s',out.mouse,out.date,out.lblPhoto{b}));
+    ylabel('trial - all rewarded'); xlim(win);
+    xlabel('time to center poke (s)'); ylim([0 nHits]);
+    title(sprintf('%s-%s: %s to poke (all rew)',out.mouse,out.date,out.lblPhoto{b}));
 end

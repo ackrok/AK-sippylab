@@ -1,165 +1,158 @@
 function out = analyzeFP_STA(comb, varargin)
 % Analyze photometry signal to align to behavioral events
 %
-% out = analyzeFP_STA(comb)
-% out = analyzeFP_STA(comb, win, base)
+% Syntax:
+%   out = analyzeFP_STA(comb);
+%   out = analyzeFP_STA(comb, win);
+%   out = analyzeFP_STA(comb, win, base);
 %
-% INPUTS
-% 'comb' - structure with data from multiple recordings, created using 
-%           script "extractComb"
-% 'win'  - window for STA analysis, default is [-1 2] seconds
-% 'base' - window for baselining, default is [-2 -1]
+% Inputs:
+%   'comb' - structure with data from multiple recordings, created using 
+%           function extractComb
+%   'win'  - window for photometry alignment, default is [-1 2] seconds
+%   'base' - window for baseline, default is [-2 -1]
 %
-% OUTPUTS
-% 'out' - structure with behavior performance metrics
-%   - out(a).mouse   - mouse ID
-%   - out(a).date    - all recording dates
-%   - out(a).sta     - table with STA data
-%       - table columns are behavioral events that are aligned to
-%       - table rows are each photometry signal (eg, 2 rows 5-HT, rDA)
-%   - out(a).time - time vector for plotting STA
+% Outputs:
+%   'out' - structure with output variables, including:
+%       - out(a).mouse   - mouse ID
+%       - out(a).date    - all recording dates
+%       - out(a).evPhoto - table with photometry aligned to events
+%           - table columns are behavioral events
+%           - table rows are different photometry signals (eg, 5-HT, rDA)
+%       - out(a).time - time vector for plotting
 %
-% Note: to extract table headers, use headers = T.Properties.VariableNames
+% Note: to extract table headers: opts = T.Properties.VariableNames;
 %
 % Written by Anne Krok, Dec 2025
-%
+% Updated April 2026
 
 % Default inputs
-win = [-1 2]; % STA window, in seconds
+win = [-1 2]; % window, in seconds, for aligning photometry to events
 win_base = [-2 -1]; % baseline window, in seconds
 switch nargin
     case 2
-        win = varargin{1};  % Update STA window if provided
+        win = varargin{1};  % update STA window if provided
     case 3
         win = varargin{1};
-        win_base = varargin{2}; % Update baseline window if provided
+        win_base = varargin{2}; % update baseline window if provided
 end
-
-%% Initialize output variable
-out = struct;
-
+bin_peth = 0.05; % bin width, in seconds, for aligning licks to events
+out = struct; % initialize output variable
 
 %% Align photometry signals to behavioral event
 opts = {'rightHit','leftHit','miss','incorrectAction','abort'};
 
-% uni = unique({comb.mouse});
-% for ii = 1:length(uni)
-%     match = find(strcmp({comb.mouse},uni{ii}));
-% 
-%     for jj = 1:length(match)
-%         a = match(jj);
-
 for a = 1:length(comb)
-        Fs  = comb(a).Fs;
-        nFP = length(comb(a).FP);
-        beh = comb(a).beh;
-
-        idxHits  = beh.hitT.trial; % index for rewarded trials
-        firstPoke = beh.trial.firstPoke; % alignment to mouse self-initiation of rewarded trial
-        soundOn   = beh.trial.soundOn; 
-        hit       = beh.hitT.hits;
-        if isnan(beh.trial.start(1))
-            rmv = find(isnan(beh.trial.start)); % index of first trial that starts after photometry
-            idxHits(ismember(idxHits, rmv)) = [];
-        end
-    
-        photo2event = cell(length(opts)+2, nFP); % initialize temporary variable
-        time = win(1) : 1/Fs : win(2);
-        for b = 1:nFP
-            signal = comb(a).FP{b}; % signal
-            
-            event = firstPoke(idxHits)./Fs; % firstPoke for rewarded trials
-            sta = getSTA(signal, event, Fs, win);
-            sta_base = getSTA(signal, event, Fs, win_base);
-            sta = sta - mean(sta_base,1,'omitnan');
-            photo2event{1,b} = sta;
-        
-            event = hit./Fs; % reward delivery
-            sta = getSTA(signal, event, Fs, win);
-            sta_base = getSTA(signal, event, Fs, win_base);
-            sta = sta - mean(sta_base,1,'omitnan');
-            photo2event{2,b} = sta;
-            
-            for kk = 1:length(opts)
-                ll = strcmpi(beh.trial.lastAct, opts{kk});
-                if any(ll)
-                    event = soundOn(ll)./Fs; % soundOn by outcome
-                    sta = getSTA(signal, event, Fs, win);
-                    sta_base = getSTA(signal, event, Fs, win_base);
-                    sta = sta - mean(sta_base,1,'omitnan');
-                    photo2event{2+kk,b} = sta;
-                else
-                    photo2event{2+kk,b} = nan(numel(time),1);
-                end
-            end
-        end
-        lbls = {'pokeRew','reward','soundOnHitR','soundOnHitL','soundOnMiss','soundOnError','soundOnAbort'};
-        T = cell2table(photo2event.', 'VariableNames', lbls);
-        out(a).mouse = comb(a).mouse;
-        out(a).date  = comb(a).date;
-        out(a).nFP   = nFP;
-        out(a).FPnames = comb(a).FPnames;
-        out(a).sta   = T;
-        out(a).time  = time;
-end
-
-
-
+    Fs  = comb(a).Fs;
+    FP  = comb(a).FP;
+    nFP = length(FP);
+    beh = comb(a).beh;
+    out(a).mouse = comb(a).mouse;
+    out(a).date  = comb(a).date;
+    out(a).nFP   = nFP;
+    out(a).lblPhoto = comb(a).FPnames;
 
 %%
-% opts = fieldnames(comb(1).beh); % options are all behavioral events names
-% lbls = {'hits','miss','error','lickStartTrial','lickStartHitTrial'}; % hard-coded which behavioral events to process
-% 
-% uniMouse = unique({comb.mouse}); %  unique mouse IDs from the input structure
-% 
-% % Loop through each unique mouse ID to calculate performance metrics
-% for thisMouse = 1:length(uniMouse)
-%     % Loop through each recording for each unique mouse ID
-%     match = find(strcmp({comb.mouse},uniMouse{thisMouse}));
-% 
-%     out(thisMouse).mouse = uniMouse{thisMouse}; % STORE
-%     out(thisMouse).recs  = {comb(match).date}; % STORE
-%     C = cell(length(match), 2, length(lbls)); % Initiate cell array
-%     % #rows is #recordings for unique mouse ID
-%     % #columns is #photometry signals
-%     % #pages is #behavioral events
-%     C2 = cell(2, length(lbls)); % Initiate cell array for averaged data
-% 
-%     for a = 1:length(match)
-%         FP  = comb(match(a)).FP; % Photometry signal(s)
-%         nFP = length(comb(match(a)).FPnames); % Number of phototometry signals
-%         beh = comb(match(a)).beh; % Behavioral data for one recording
-%         beh.error = sort([beh.error; beh.noHold]);
-%         Fs  = comb(match(a)).Fs; % Sampling frequency
-%         mouse = comb(match(a)).mouse; date = comb(match(a)).date; % Store to be able to check in case of errors
-% 
-%         % Loop through each behavioral events
-%         for pickEv = 1:length(lbls)
-%             % Extract event times based on label
-%             ev = getfield(beh, opts{strcmp(opts, lbls{pickEv})});
-%             ev = ev./Fs; % convert to seconds
-% 
-%             % Loop through each photometry signal
-%             for thisFP = 1:nFP
-%                 signal = FP{thisFP}; 
-%                 [sta, time] = getSTA(signal, ev, Fs, win);
-%                 base        = getSTA(signal, ev, Fs, winBase);
-%                 base = nanmean(base,1); % average across entire baseline window to create vector of length(nHits)
-%                 staAdj = sta - base; % subtract baseline
-% 
-%                 C{a, thisFP, pickEv} = staAdj; % STORE
-%                 C2{thisFP, pickEv}(:,a) = nanmean(staAdj,2); % STORE
-% 
-%             end
-%         end
-%     end
-% 
-%     T = table();
-%     for p = 1:size(C,3)
-%         T.(lbls{p}) = C(:,:,p);
-%     end
-%     out(thisMouse).sta = T;
-%     out(thisMouse).time = time;
-%     out(thisMouse).nFP = nFP; out(thisMouse).FPnames = comb(1).FPnames;
-% end
+% Extract from data structure.
+% Note that behavior event times are in samples relative to processed
+% photometry sampling frequency, usually 50 Hz.
+    nTrials  = height(beh.trial);
+    nHits    = height(beh.hitT);
+    idxHits  = beh.hitT.trial; % index for rewarded trials
+    idxHitsR = idxHits(strcmpi(beh.hitT.side, 'right')); % note these are relative to ALL trials
+    idxHitsL = idxHits(strcmpi(beh.hitT.side, 'left')); % note these are relative to ALL trials
+    idxSidebyTr  = {idxHitsR, idxHitsL}; % store in cell array for looping
+    idxSidebyHit = {find(strcmpi(beh.hitT.side,'right')), find(strcmpi(beh.hitT.side,'left'))};
+    lickSide = {beh.lickRight, beh.lickLeft}; % store in cell array for looping
+    tr_start = beh.trial.start; % trial start
+    tr_end   = beh.trial.end;   % trial end
+    firstPoke = beh.trial.firstPoke; % mouse self-initiation
+    soundOn   = beh.trial.soundOn;   % soundOn
+    hit      = beh.hitT.hits;
+    rewLatency = cell(1,2);
+    rewLatency{1} = beh.hitT.rewLatency(idxSidebyHit{1}); % latency from firstPoke to right hit
+    rewLatency{2} = beh.hitT.rewLatency(idxSidebyHit{2});  % latency from firstPoke to left hit
+    if isnan(beh.trial.start(1))
+        rmv = find(isnan(beh.trial.start)); % index of first trial that starts after photometry
+        idxHits(ismember(idxHits, rmv)) = nan; % replace with nan to exclude from analysis
+    end
 
+%%
+% Align photometry signals to behavioral events
+%   (1) first center poke for rewarded trials
+%   (2) reward delivery
+%   (3) sound on right rewarded trials
+%   (4) sound on left rewarded trials
+%   (5) sound on for all miss trials
+%   (6) sound on for all error trials
+%   (7) sound on for all abort trials
+    photo2event = cell(length(opts)+2, nFP); % initialize temporary variable
+    time = win(1) : 1/Fs : win(2);
+    for b = 1:nFP
+        signal = FP{b}; % signal
+        
+        event = firstPoke(idxHits)./Fs; % firstPoke for rewarded trials
+        sta = getSTA(signal, event, Fs, win);
+        sta_base = getSTA(signal, event, Fs, win_base);
+        sta = sta - mean(sta_base,1,'omitnan');
+        photo2event{1,b} = sta;
+    
+        event = hit./Fs; % reward delivery
+        sta = getSTA(signal, event, Fs, win);
+        sta_base = getSTA(signal, event, Fs, win_base);
+        sta = sta - mean(sta_base,1,'omitnan');
+        photo2event{2,b} = sta;
+        
+        for kk = 1:length(opts)
+            ll = strcmpi(beh.trial.lastAct, opts{kk});
+            if any(ll)
+                event = soundOn(ll)./Fs; % soundOn by outcome
+                sta = getSTA(signal, event, Fs, win);
+                sta_base = getSTA(signal, event, Fs, win_base);
+                sta = sta - mean(sta_base,1,'omitnan');
+                photo2event{2+kk,b} = sta;
+            else
+                photo2event{2+kk,b} = nan(numel(time),1);
+            end
+        end
+    end
+    lbls = {'pokeRew','reward','soundOnHitR','soundOnHitL','soundOnMiss','soundOnError','soundOnAbort'};
+    T = cell2table(photo2event.', 'VariableNames', lbls);
+    out(a).evPhoto = T;
+    out(a).time  = time(:);
+
+%%
+% Align licks to events:
+% Lick rate aligned to self-initiation of trial (poke center after LEDon),
+% separated by right/left trials.
+    lickRate = cell(1,2); % initialize output variable
+    nBins = -1 + numel(win(1):bin_peth:win(2));    % original bin count
+    for s = 1:2 % right, left
+        lickRate{s} = nan(nBins, nHits);           % preallocate NaNs
+        % process each potential hit index
+        for n = 1:numel(idxSidebyTr{s})
+            id = idxSidebyTr{s}(n);
+            % validate id and lick vectors
+            if isnan(id) || id <= 0 || id > nTrials || isempty(lickSide{s})
+                continue
+            end
+            % find licks in trial window
+            idxSort = find(lickSide{s} >= tr_start(id) & lickSide{s} <= tr_end(id));
+            if isempty(idxSort)
+                continue
+            end
+            tmpLick = lickSide{s}(idxSort);
+            % compute peri-event histogram (align licks to first poke)
+            peth = getClusterPETH(tmpLick./Fs, firstPoke(id)./Fs, bin_peth, win);
+            lickRate{s}(:,n) = peth.fr;
+        end
+        % clamp values and select hits by idxSidebyHit{s}
+        lickRate{s}(lickRate{s} > 1) = 1;
+        lickRate{s} = lickRate{s}(:, idxSidebyHit{s});
+    end
+    out(a).evLicks  = lickRate;
+    out(a).timePeth = peth.time(:);
+    out(a).rewLat   = rewLatency;
+    out(a).idxSide  = idxSidebyHit;
+    out(a).lblSide  = {'right','left'};
+end
