@@ -1,87 +1,135 @@
-% Process data from Neurophotometrics and Bonsai output into .mat data file
+% processDataSippy2
+% Process data from Neurophotometrics and Bonsai output into .mat file.
 %
-% processDataSippy
+% Syntax:
+%   processDataSippy2
 %
-% INPUT
-% (1) Select bonsai .csv file location
-%       - direct to folder with behavior and/or photometry data to analyze
+% Inputs:
+%   - Select folders that contain .csv data
+%       - Can select multiple folders with data (eg, across multiple 
+%           recording days) for processing.
+%   - For each recording:
+%       - Dialog window will pop-up to ask for recording identifiers:
+%           - mouse, date, green channel, red channel
+%       - (optional) Select folder to save .mat files for cohot
+%           - if selected, will use same path for all files.
 %
-% (2) Check recording identifyers
-%       - will auto-populate with mouseID and recording date based on 
-%       file folder name
+% Output:
+%   - 'data' structure saved as .mat in same folder as .csv file(s) 
+%       for each recording
 %
-% (3) Select signal in each photometry channel
-%       - note separate pop-up windows for green and red channels
-%
-% OUTPUT
-% 'data' structure is saved as .mat in same folder as .csv file(s)
-%
-% Written by: Anya Krok, July 2025
-% Updated April 2026 to integrate extractDataFromCsv function
-%
+% Written by: Anya Krok, July 2026
+% Updated April 2026 to integrate extractDataFromCsv, uigetdir2
 
-%%o
-% selectDir = uigetdir('Select Directory with Photometry files'); % pop-up window to select file directory
-filePath = uigetdir('Select bonsai file directory.', pwd);
-cd(filePath);  % open file directory
-
-%%
-try
-    mouse = regexp(filePath, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
-    date = regexp(filePath, '\d{6}', 'match', 'once'); % extract any sequence of exactly six digits (e.g. 251215)
-catch
-    mouse = 'JT0XX'; date = 'YYMMDD';
-end
-opts = inputdlg({sprintf('%s \n\n\n Mouse ID:',filePath), 'Recording Date:', 'Save to cohort folder? (yes/no)'},...
-    'Input', [1 40; 1 40; 1 40], {mouse, date, 'no'});
-mouse = opts{1}; date = opts{2};
-cohortSave = opts{3};
+%% Select MULTIPLE folders with data files
+[allPath] = uigetdir2; % Essentially multiselect directories, returns filePath in cell array
 
 %%
-fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
-filePhoto = dir('Photo*.csv'); % check for .csv files starting with "Photo..."
-fileFrames = dir('Frames*.csv'); 
-try % behavior output
-    statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
-    if statetrans.Trial(1) == 0
-        statetrans.Trial = statetrans.Trial + 1;
+for a = 1:length(allPath)
+    fprintf('Identifying .csv files... ')
+    tic
+    thisPath = allPath{a};
+    cd(thisPath);
+    fileBeh = dir('State*.csv'); % check for .csv files starting with "State..."
+    filePhoto = dir('Photo*.csv'); % check for .csv files starting with "Photo..."
+    fileFrames = dir('Frames*.csv'); 
+    c = 0;
+    while isempty(fileFrames)
+        tmp = dir(thisPath);
+        if isempty([tmp.isdir])
+            error('ERROR: no files or folder in this directory.')
+        end
+        thisPathSubfolders = {tmp.name};
+        idx = find(strlength(thisPathSubfolders)>9); % if folder name starts with YYYY-MM-DD, should be at least 9 characters long
+        if length(idx) > 1
+            choice = menu('Select sub-folder with data (can open it in Finder to confirm).',thisPathSubfolders);
+            idx = thisPathSubfolders{choice}; 
+        end
+        cd(fullfile(thisPath, thisPathSubfolders{idx}));
+        fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
+        filePhoto = dir('Photo*.csv'); % check for .csv files starting with "Photo..."
+        fileFrames = dir('Frames*.csv'); 
+        c = c + 1; % add to ticker
+        if c > 3
+            break % exit loop when count exceeds 3
+        end
     end
-catch, statetrans = [];
-end
-try % photometry
-    photoT = GetBonsai_Photometry(filePhoto.name);
-catch, photoT = [];
-end
-try % frames
-    frames = table2array(GetBonsai_PhotometryFrames(fileFrames.name));
-catch, frames = [];
-end
+    toc
+    filePath = pwd; % return current folder as string
+    
+    %% convert fileName into mouse and date IDs
+    try
+        mouse = regexp(filePath, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
+        date = regexp(filePath, '\d{6}', 'match', 'once'); % extract any sequence of exactly six digits (e.g. 251215)
+    catch
+        mouse = 'JT0XX'; date = 'YYMMDD';
+    end
+    opts = inputdlg({sprintf('%s \n\n\n Mouse ID:',filePath), ...
+        'Recording Date:', ...
+        'Green channel (DA, 5-HT, NE, GCaMP)', ...
+        'Red channel (rDA, RCaMP)', ...
+        'Save to cohort folder? (yes/no)'}, ...
+        'Input', [1 40].*ones(5,2), ...
+        {mouse, date, '', '', 'no'});
+    mouse = opts{1}; date = opts{2};
+    sigNames = {opts{3},opts{4}};
+    cohortSave = opts{5};
+    
+    %% extract data into workspace
+    try % behavior output
+        statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
+        if statetrans.Trial(1) == 0
+            statetrans.Trial = statetrans.Trial + 1;
+        end
+    catch, statetrans = [];
+    end
+    try % photometry
+        photoT = GetBonsai_Photometry(filePhoto.name);
+    catch, photoT = [];
+    end
+    try % frames
+        frames = table2array(GetBonsai_PhotometryFrames(fileFrames.name));
+    catch, frames = [];
+    end
 
-%% data structure
-data = struct;
-data.mouse = mouse; 
-data.date = date;
-data.ID = sprintf('%s-%s',mouse,date); 
-tic
-data = extractDataFromCsv(data, frames, photoT, statetrans);
-toc
-%% start time
-[~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts
-parts = split(name, 'T');                                % {'2026-04-09','15-11-22'}
-HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
-YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
-data.gen.startTime = [YMD;HMS]';
-data.gen.startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
+    %% create data structure
+    data = struct;
+    data.mouse = mouse; 
+    data.date = date;
+    data.ID = sprintf('%s-%s',mouse,date); 
+    fprintf('Extracting data from .csv files...');
+    tic
+    data = extractDataFromCsv(data, frames, photoT, statetrans);
+    toc
 
-%% SAVE
-saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
-save(fullfile(filePath,saveName),'data');
-fprintf('SAVED %s \n',saveName);
+    %% start time
+    [~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts
+    parts = split(name, 'T');                                % {'2026-04-09','15-11-22'}
+    HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
+    YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
+    data.gen.startTime = [YMD;HMS]';
+    data.gen.startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
 
-switch cohortSave
-    case 'yes'
-        cohortPath = uigetdir('Select cohort directory.',filePath);
-        save(fullfile(cohortPath,saveName),'data');
+    %% photometry signal names
+    if ~isempty(photoT)
+        for n = 1:length(data.acq.FP)
+            data.acq.FPnames{n} = sigNames{n};
+            data.final.FPnames{n} = sigNames{n};
+        end
+    end
+
+    %% save file in same folder where .csv files are located
+    saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
+    save(fullfile(filePath, saveName), 'data');
+    fprintf(' %s: SAVED data.mat \n', data.ID);
+    switch cohortSave
+        case 'yes'
+            if ~exist('cohortPath','var')
+                cohortPath = uigetdir('Select cohort directory.',filePath);
+            end
+            save(fullfile(cohortPath,saveName),'data');
+    end
+
 end
 
 %% PLOT RW FP

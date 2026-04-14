@@ -1,18 +1,13 @@
 %
 % plotFPtoEvent
 %
-% Description: align photometry signal(s) to behavioral event times using
-% spike-triggered average functions. Necessitates prior photometry signal
-% processing and behavioral data extraction into combined data structure.
-%
-% Align photometry for rewarded trials to
-%   (1) first poke (2) reward delivery (3) soundOnRight (4) soundOnLeft
-%
 % Inputs:
 %   'comb' - combined data structure from extractCombstruct
+%
+% ** User will be prompted to select events to plot **
 % 
 % Outputs:
-%   'fig' - generates multiple figures (one per photometry signal)
+%   'fig' - figure with photometry signal(s) aligned to event times.
 % 
 % Anya Krok, Dec 2025
 % Updated April 2026
@@ -36,9 +31,12 @@ lblEvent = out(1).evPhoto.Properties.VariableNames; % event labels
 
 %% 
 % select behavior events to align to:
-chooseEv = listdlg('PromptString','Select events: ','SelectionMode','multiple',...
-    'ListString',lblEvent);
+chooseEv = listdlg('ListString',lblEvent, ...
+    'PromptString','Select events: (hold Shift or Command to select Multiple) ',...
+    'SelectionMode','multiple',...
+    'ListSize',[300, 150]);
 if isempty(chooseEv); error('No event select, try again.'); end
+
 %%
 clr = lines(7); % color matrix for plotting
 if isscalar(chooseEv)
@@ -72,7 +70,7 @@ elseif length(chooseEv) > 1
             match = find(strcmp({out.mouse},uni{idxMouse})); % indices for all recs for this mouse
             for i = 1:length(chooseEv)
                 idxEvent = chooseEv(i);
-                subplot(4, nUni, idxMouse + (i-1)*nUni); hold on
+                subplot(length(chooseEv), nUni, idxMouse + (i-1)*nUni); hold on
                 for m = 1:length(match)
                     a = match(m);
                     mat = out(a).evPhoto{idxFP, idxEvent}; mat = mat{1}; % extract data

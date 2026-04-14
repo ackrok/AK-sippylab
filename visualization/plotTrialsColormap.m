@@ -4,11 +4,9 @@
 % - t = 0 reflect trial start time as determined by mouse center poke.
 % - red dots reflect trial end time, aka final correct lick / "hit".
 
-if ~exist('out','var') || exist('out','var') && ~isfield(out,'evLicks')
-    a = 1;
-    win = [-1 5];
-    out = analyzeFP_STA(comb(a), win);
-end
+a = menu('Select data to plot: ',strcat({comb.mouse},'-',{comb.date}));
+win = [-1 5];
+out = analyzeFP_STA(comb(a), win);
 
 %% PLOT
 fig = figure; theme(fig,'light');
@@ -30,10 +28,9 @@ for s = 1:2
     c = colorbar; c.Label.String = 'licks';
     xline(0,'LineWidth',2,'Color','r'); % xline at 0, representing trial start
     scatter(rewLat(idx), 1:nSide, 10, 'filled', 'r'); % plot hit licks
-    xlabel('time to center poke (s)'); 
-    xlim(win);
+    xlabel('time to center poke (s), dot is hit'); 
     ylabel(sprintf('trial - %s rewarded',out.lblSide{s})); 
-    ylim([0 nSide]); 
+    xlim(win); ylim([0 nSide]); 
     title(sprintf('%s-%s: lick to poke (%s rew)',out.mouse,out.date,out.lblSide{s}));
 end
 
@@ -54,7 +51,8 @@ for b = 1:length(out.lblPhoto)
     c = colorbar; c.Label.String = '(dF/F)';
     xline(0,'LineWidth',2,'Color','r');
     scatter(rewLat(idx), 1:nHits, 10, 'filled', 'r');
-    ylabel('trial - all rewarded'); xlim(win);
-    xlabel('time to center poke (s)'); ylim([0 nHits]);
+    xlabel('time to center poke (s), dot is hit');
+    ylabel('trial - all rewarded');
+    xlim(win); ylim([0 nHits]); 
     title(sprintf('%s-%s: %s to poke (all rew)',out.mouse,out.date,out.lblPhoto{b}));
 end
