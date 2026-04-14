@@ -1,8 +1,8 @@
-% processDataSippy2
+% processDataSippy
 % Process data from Neurophotometrics and Bonsai output into .mat file.
 %
 % Syntax:
-%   processDataSippy2
+%   processDataSippy
 %
 % Inputs:
 %   - Select folders that contain .csv data

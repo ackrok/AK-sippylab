@@ -50,7 +50,28 @@ lines = arrayfun(@(a) sprintf(...
     (1:nGroup).', 'UniformOutput', false);
 
 str = [str, strcat(lines{:})];
-fprintf('%s\n', str);
+fprintf('%s\n \n', str);
+
+%%
+% outcomes separated by which sound presented:
+opts = {'righthit','lefthit','miss','incorrectAction','abort'};
+fprintf('%s bias soundOnRight / soundOnLeft: \n', out.mouse);
+for a = 1:length(comb)
+    mat = nan(5,2); 
+    last = comb(a).beh.trial.lastAct;
+    idxRight = find(strcmpi(comb(a).beh.trial.side,'right'));
+    idxLeft = find(strcmpi(comb(a).beh.trial.side,'left'));
+    for j = 1:length(opts)
+        thisAct = find(strcmpi(last, opts{j}));
+        mat(j,1) = numel(intersect(thisAct, idxRight));
+        mat(j,2) = numel(intersect(thisAct, idxLeft));
+    end
+    
+    fprintf('  (%d) %s: rightHit (%d). leftHit (%d). miss (%d/%d). error (%d/%d). abort (%d/%d).\n', ...
+        a, comb(a).date,...
+        mat(1,1), mat(2,2), mat(3,1), mat(3,2), mat(4,1), mat(4,2), mat(5,1), mat(5,2));
+end
+fprintf('\n');
 
 %%
 fig = figure; theme(fig,'light');
