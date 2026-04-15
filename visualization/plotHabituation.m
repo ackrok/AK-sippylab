@@ -137,7 +137,7 @@ end
 xlabel('recording date'); xticklabels(out.date);  
 ylabel('time to reward (min)');
 legend(lbl,'location','west');
-str = 'last rew at (min):';
+str = sprintf('last rew at (min):\n');
 parts = compose(' (%d) %d.', (1:nGroup).', round(rewTime(:,2)));
 str = [str, char(strjoin(parts, ''))];
 title(str);
@@ -157,7 +157,7 @@ xlim([0.5 0.5+nGroup]); xticks(1:nGroup);
 xlabel('recording date'); xticklabels(out.date);  
 ylabel('time from LED-on (s)');
 ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
-str = 'ledOn to hold(s):';
+str = sprintf('ledOn to hold(s):\n');
 parts = compose(' (%d) %.1f.', (1:nGroup).', hold_mu(:));
 str = [str, char(strjoin(parts, ''))];
 title(str);
@@ -184,7 +184,7 @@ xlabel('recording date'); xticklabels(out.date);
 ylabel('time from sound-on (s)'); yl = ylim; ylim([0 ceil(yl(2))]);
 ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
 legend; legend('Location','southwest');
-str = 'tone to hit(s):';
+str = sprintf('tone to hit(s):\n');
 parts = compose(' (%d)%.1f/%.1f.', (1:nGroup).', toneR_mu(:), toneL_mu(:));
 str = [str,char(strjoin(parts, ''))];
 title(str);
@@ -231,7 +231,7 @@ legend('Location','northwest');
 % xlabel('recording date'); xticklabels(out.date);  
 % ylabel('inter-reward interval (s)'); 
 % ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
-str = 'mean IRI(s):';
+str = sprintf('mean IRI(s):\n');
 parts = compose(' (%d) %.1f.', (1:nGroup).', iri_mu(:));
 str = [str, char(strjoin(parts,''))];
 title(str);

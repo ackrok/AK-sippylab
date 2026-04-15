@@ -84,53 +84,70 @@ fprintf('\n');
 %% behavior: extract collection start time
 [~, name, ~] = fileparts(regexprep(behPath,'/$',''));   % remove trailing slash then fileparts
 parts = split(name, 'T');                                % {'2026-04-09','15-11-22'}
-HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
 YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
-beh_startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
-
-%% behavior: adjust time
-behName = dir('State*.csv');
-statetrans = GetBonsai_Pho_StateTransitions_Celeste(behName.name);
-if statetrans.Trial(1) == 0
-    statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
+HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
+%% behavior
+csvNames = {dir('*.csv').name};
+idxState = find(startsWith(csvNames, 'State')); % StateTransitions.csv
+idxVideo = find(startsWith(csvNames, 'video')); % video.csv
+% (a) attempt to process StateTransitions.csv Bonsai output (for 2AFC task)
+if ~isempty(idxState)
+    statetrans = GetBonsai_Pho_StateTransitions_Celeste(csvNames{idxState});
+    if statetrans.Trial(1) == 0
+        statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
+    end
+    bonsai_T0 = statetrans.TimeOfDay - statetrans.TimeOfDay(1);
+    beh_startSec = statetrans.TimeOfDay(1)./1000;  % convert to seconds
+    HMS(3) = HMS(3) + (beh_startSec - (HMS(1)*3600 + HMS(2)*60 + HMS(3))); % add millisecond precision
+    % During data acquisition, bonsai / behavior acquisiton starts first and 
+    % then wavesurfer / photometry acquisition. Thus, there will likely be
+    % events/trials that occur prior to any photometry data. Later
+    % processing will change time stamps for these events to NaN.
+    startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai behavior
+    statetrans.PhotoTime = bonsai_T0 - startDelay; % new photometry-adjusted time
+    fprintf('\nBehavior: \n     Extract data from .csv file. ');
+    tic
+    beh = extract2AFCdataAK(statetrans,'photoWS');
+    beh.startTime = [YMD;HMS]';
+    beh.startSec = beh_startSec;
+    toc
+    % Match timing:
+    % Convert time stamps for behavioral data from seconds relative to
+    % photometry acquisition start time --> samples relative to photometry.
+    data.beh = beh;
+    data.acq.beh = statetrans;
+    fprintf('     Time stamps relative to photometry frames. ')
+    tic
+    data = alignBehTStoPhotoTS(data); % frames relative to photometry signal
+    toc
+    fprintf('\n');
 end
-bonsai_T0 = statetrans.ElapsedTime - statetrans.ElapsedTime(1);
-startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai
-statetrans.PhotoTime = bonsai_T0 - startDelay; % new photometry-adjusted time
-% During data acquisition, bonsai / behavior acquisiton starts first and 
-% then wavesurfer / photometry acquisition. Thus, there will likely be
-% events/trials that occur prior to any photometry data. 
-% --> remove trials with negative time stamps (usually 0-2 trials).
-% idx0 = find(statetrans.PhotoTime < 0, 1, 'first'); % find idx that occur PRIOR to photometry acquisition start
-% if isempty(idx0); rmvIdx = [];
-% else 
-%     cutoff = statetrans.Trial(idx0); % trial when photometry acquisitoin started
-%     rmvIdx = find(statetrans.Trial <= cutoff); % index for trials
-%     statetrans(rmvIdx,:) = []; % REMOVE data from trials prior to photometry start
-%     if statetrans.Trial > 1
-%         statetrans.Trial = 1 + statetrans.Trial - statetrans.Trial(1); % reset trial #1
-%     end
-% end
-
-%% behavior: extract data from .csv
-fprintf('\nBehavior: \n     Extract data from .csv file. ');
-tic
-beh = extract2AFCdataAK(statetrans,'photoWS');
-beh.startTime = [YMD;HMS]';
-beh.startSec = beh_startSec;
-toc
-%% behavioral data match timing 
-% Convert time stamps for behavioral data from seconds relative to
-% photometry acquisition start time --> samples relative to photometry.
-data.beh = beh;
-data.acq.beh = statetrans;
-fprintf('     Time stamps relative to photometry frames. ')
-tic
-data = alignBehTStoPhotoTS(data); % frame relative to photometry signal
-toc
-fprintf('\n');
-
+% (b) attempt to extract video frames for openField recording in Bonsai
+if ~isempty(idxVideo)
+    fprintf('\nBehavior: \n     Extract data from .csv file. ');
+    tic
+    opts = detectImportOptions(csvNames{idxVideo});
+    opts.SelectedVariableNames = opts.VariableNames(1);
+    tmp = readtable(csvNames{idxVideo}, opts);
+    frames = table(tmp{:,1}, 'VariableNames', {'TimeOfDay'});
+    bonsai_T0 = frames.TimeOfDay - frames.TimeOfDay(1);
+    beh_startSec = frames.TimeOfDay(1)./1000;      % convert to seconds
+    HMS(3) = HMS(3) + (beh_startSec - (HMS(1)*3600 + HMS(2)*60 + HMS(3))); % add millisecond precision
+    startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai behavior
+    frames.PhotoTime = bonsai_T0 - startDelay;     % new photometry-adjusted time
+    newTS = firstFrameBeforeEventIndex(frames.PhotoTime, data.gen.acqFs, numel(data.acq.FP{1}));
+    data.beh.frames = newTS; % frames relative to photometry signal
+    data.beh.framesTS = frames.PhotoTime;
+    toc
+    fprintf('\n');
+end
 %% SAVE
+if isfield(data.acq,'time')
+    data.acq = rmfield(data.acq,'time'); % remove time vector to make data file smaller
+end
+if isfield(data,'final') && isfield(data.final,'time')
+    data.final = rmfield(data.final,'time'); 
+end
 saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
 save(fullfile(h5Path, saveName),'data');
 fprintf('SAVED %s \n',saveName);
