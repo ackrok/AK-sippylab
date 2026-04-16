@@ -73,6 +73,16 @@ data.gen.params = params; % add params to data structure
 data.gen.params.acqFs = data.gen.acqFs; % overwrite with actual acquision sampling rate
 data.gen.params.dsRate = data.gen.params.acqFs/50; % overwrite
 data.gen.startSec = data.gen.startTime(4)*3600 + data.gen.startTime(5)*60 + data.gen.startTime(6);
+% added a check to ensure that 470nm LED modulation frequency relates to
+% the correct photometry signal
+switch length(data.acq.FPnames)
+    case 2
+        whereDA = find(strcmpi(data.acq.FPnames,'DA'));
+        if whereDA ~= 2
+            data.acq.FP = data.acq.FP([2 1]); 
+            data.acq.FPnames = data.acq.FPnames([2 1]);
+        end
+end      
 toc
 %% photometry: process
 fprintf('     Process photometry data. ');
