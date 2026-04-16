@@ -40,6 +40,9 @@ for a = 1:length(fileName)
     comb(a).date  = data.date; % store the loaded data in the structure
     comb(a).rec   = data.ID; % recording ID
     comb(a).FPnames = data.final.FPnames;
+    if isfield(data.final,'nbFP')
+        comb(a).nbFP = data.final.nbFP; % demodulated, non-baselined signal
+    end
     comb(a).FP = data.final.FP;
     comb(a).time = data.final.time;
     comb(a).Fs = data.gen.Fs;
