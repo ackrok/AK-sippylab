@@ -34,7 +34,7 @@ catch
 end
 
 params = struct;
-params.acqFs = 1000;              % Acquisition sampling frequency
+params.acqFs = 5000;              % Acquisition sampling frequency
 params.dsType = 2;                % 1 = Bin Summing; 2 = Bin Averaging; 3 = Traditional (NOT RECOMMENDED)
 params.dsRate = params.acqFs/50;  % Downsampling rate if you want to downsample the signal
 params.FP.lpCut = 15;             % Cut-off frequency for filter
@@ -115,7 +115,7 @@ if ~isempty(idxState)
     % processing will change time stamps for these events to NaN.
     startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai behavior
     statetrans.PhotoTime = bonsai_T0 - startDelay; % new photometry-adjusted time
-    fprintf('\nBehavior: \n     Extract data from .csv file. ');
+    fprintf('Behavior: \n     Extract data from .csv file. ');
     tic
     beh = extract2AFCdataAK(statetrans,'photoWS');
     beh.startTime = [YMD;HMS]';
@@ -134,7 +134,7 @@ if ~isempty(idxState)
 end
 % (b) attempt to extract video frames for openField recording in Bonsai
 if ~isempty(idxVideo)
-    fprintf('\nBehavior: \n     Extract data from .csv file. ');
+    fprintf('Behavior: \n     Extract data from .csv file. ');
     tic
     opts = detectImportOptions(csvNames{idxVideo});
     opts.SelectedVariableNames = opts.VariableNames(1);
@@ -158,9 +158,11 @@ end
 if isfield(data,'final') && isfield(data.final,'time')
     data.final = rmfield(data.final,'time'); 
 end
+data = rmfield(data,'acq'); % CAN CHANGE -- removes raw signals to reduce space
+
 saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
 save(fullfile(h5Path, saveName),'data');
-fprintf('SAVED %s \n',saveName);
+fprintf('\nSAVED %s \n\n',saveName);
 switch cohortSave
     case 'yes'
         cohortPath = uigetdir('Select cohort directory.',pwd);
