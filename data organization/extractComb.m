@@ -35,18 +35,30 @@ comb = struct; % Initialize
 for a = 1:length(fileName)
     fprintf('%d of %d...',a,length(fileName));
     tic
-    load(fullfile(filePath, fileName{a})); % load each .mat file
+    load(fullfile(filePath, fileName{a}),'data'); % load each .mat file
     comb(a).mouse = data.mouse; % store the loaded data in the structure
     comb(a).date  = data.date; % store the loaded data in the structure
-    comb(a).rec   = data.ID; % recording ID
-    comb(a).FPnames = data.final.FPnames;
-    if isfield(data.final,'nbFP')
-        comb(a).nbFP = data.final.nbFP; % demodulated, non-baselined signal
+    try
+        comb(a).rec   = data.ID; % recording ID
+    catch
+        comb(a).rec   = [data.mouse,'-',data.date]; % recording ID
     end
-    comb(a).FP = data.final.FP;
-    comb(a).time = data.final.time;
     comb(a).Fs = data.gen.Fs;
-    comb(a).beh = data.beh;
+    if isfield(data.final,'FP')
+        comb(a).FP = data.final.FP;
+        comb(a).FPnames = data.final.FPnames;
+        try
+            comb(a).time = data.final.time;
+        catch
+            comb(a).time = makeTime(numel(comb(a).FP{1}),comb(a).Fs);
+        end
+        if isfield(data.final,'nbFP')
+            comb(a).nbFP = data.final.nbFP; % demodulated, non-baselined signal
+        end
+    end
+    if isfield(data,'beh')
+        comb(a).beh = data.beh;
+    end
     toc
 end
 
