@@ -22,15 +22,16 @@
 [h5Name,h5Path] = uigetfile('*.h5','Select photometry .h5', pwd);
 cd(h5Path);  % open file directory
 
-[~, behPath] = uigetfile('*.csv','Select bonsai data folder with .csv', pwd);
-cd(behPath);  % open file directory
-
 %% mouse/date identifiers from folder name
 try
-    mouse = regexp(behPath, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
-    date = regexp(behPath, '\d{6}', 'match', 'once'); % extract any sequence of exactly six digits (e.g. 251215)
+    tok = regexp(h5Name, '^([A-Za-z0-9]+)(?:_([^_]+))?_.*?(\d{4}-\d{2}-\d{2})', 'tokens', 'once');
+    mouse = tok{1}; % 'extract mouseID from file name
+    info  = tok{2}; % 'meth' or 'Ket25' (empty if absent)
+    ymd   = tok{3}; % 'extract date in 2026-05-05 format from file name
+    dt = datetime(ymd, 'InputFormat', 'yyyy-MM-dd'); % convert YYYY-MM-DD to 'YYMMDD'  
+    date = char(dt, 'yyMMdd');     % '260505'
 catch
-    mouse = 'JT0XX'; date = 'YYMMDD';
+    mouse = 'JT0XX'; date = 'YYMMDD'; info = '';
 end
 
 params = struct;
@@ -48,27 +49,31 @@ params.FP.sigEdge = 30;           % Time in seconds of data to be removed from b
 params.FP.modFreq = [217 319];    % Modulation frequency
 params.FP.software = 'wavesurfer';
 
-opts = {sprintf('%s \n\n\n Mouse ID:',behPath), 'Recording Date:', ...
-        'Save to cohort folder? (yes/no)', ...
+opts = {sprintf('%s \n\n\n Mouse ID:',h5Name), 'Recording Date:', ...
         'Acquisition Hz:', ...
-        'Modulation Hz (green):', 'Modulation Hz (red):'};
+        'Modulation Hz (green):', 'Modulation Hz (red):', ...
+        '** Process Behavior? (yes/no) **', ...
+        'Save to cohort folder? (yes/no)'};
 opts = inputdlg(opts, 'Input', [1 40].*ones(length(opts),1), ...
-        {mouse, date, 'no', ...
+        {mouse, date, ...
         num2str(params.acqFs), ...
-        num2str(params.FP.modFreq(1)), num2str(params.FP.modFreq(2))});
+        num2str(params.FP.modFreq(1)), num2str(params.FP.modFreq(2)), ...
+        'no', 'no'});
 
 mouse = opts{1}; date = opts{2}; 
 dayName = sprintf('%s-%s',mouse,date);
-cohortSave = opts{3};
-params.acqFs = str2double(opts{4});
+params.acqFs = str2double(opts{3});
 params.dsRate = params.acqFs/50;
-params.modFreq = [str2double(opts{5}), str2double(opts{6})];
+params.modFreq = [str2double(opts{4}), str2double(opts{5})];
+runBeh = opts{6};
+cohortSave = opts{7};
 
 %% photometry: extract data from .h5 into matlab structure
 fprintf('\nPhotometry: \n     Extract data from .h5 file. ');
 tic
 dataWS = extractH5_WS(fullfile(h5Path, h5Name));
 data   = createDataStruct(dataWS, mouse, date);
+data.info = info;
 data.gen.params = params; % add params to data structure
 data.gen.params.acqFs = data.gen.acqFs; % overwrite with actual acquision sampling rate
 data.gen.params.dsRate = data.gen.params.acqFs/50; % overwrite
@@ -82,7 +87,8 @@ switch length(data.acq.FPnames)
             data.acq.FP = data.acq.FP([2 1]); 
             data.acq.FPnames = data.acq.FPnames([2 1]);
         end
-end      
+end
+data.gen.acqSamp = numel(data.acp.FP{1});
 toc
 %% photometry: process
 fprintf('     Process photometry data. ');
@@ -91,66 +97,13 @@ data = processDual(data, data.gen.params); % if frequency modulation
 % data = processFP(data, data.gen.params); % if continuous excitation
 toc
 fprintf('\n');
-%% behavior: extract collection start time
-[~, name, ~] = fileparts(regexprep(behPath,'/$',''));   % remove trailing slash then fileparts
-parts = split(name, 'T');                                % {'2026-04-09','15-11-22'}
-YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
-HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
-%% behavior
-csvNames = {dir('*.csv').name};
-idxState = find(startsWith(csvNames, 'State')); % StateTransitions.csv
-idxVideo = find(startsWith(csvNames, 'video')); % video.csv
-% (a) attempt to process StateTransitions.csv Bonsai output (for 2AFC task)
-if ~isempty(idxState)
-    statetrans = GetBonsai_Pho_StateTransitions_Celeste(csvNames{idxState});
-    if statetrans.Trial(1) == 0
-        statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
-    end
-    bonsai_T0 = statetrans.TimeOfDay - statetrans.TimeOfDay(1);
-    beh_startSec = statetrans.TimeOfDay(1)./1000;  % convert to seconds
-    HMS(3) = HMS(3) + (beh_startSec - (HMS(1)*3600 + HMS(2)*60 + HMS(3))); % add millisecond precision
-    % During data acquisition, bonsai / behavior acquisiton starts first and 
-    % then wavesurfer / photometry acquisition. Thus, there will likely be
-    % events/trials that occur prior to any photometry data. Later
-    % processing will change time stamps for these events to NaN.
-    startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai behavior
-    statetrans.PhotoTime = bonsai_T0 - startDelay; % new photometry-adjusted time
-    fprintf('Behavior: \n     Extract data from .csv file. ');
-    tic
-    beh = extract2AFCdataAK(statetrans,'photoWS');
-    beh.startTime = [YMD;HMS]';
-    beh.startSec = beh_startSec;
-    toc
-    % Match timing:
-    % Convert time stamps for behavioral data from seconds relative to
-    % photometry acquisition start time --> samples relative to photometry.
-    data.beh = beh;
-    data.acq.beh = statetrans;
-    fprintf('     Time stamps relative to photometry frames. ')
-    tic
-    data = alignBehTStoPhotoTS(data); % frames relative to photometry signal
-    toc
-    fprintf('\n');
+
+%% behavior: process
+switch runBeh
+    case 'yes'
+        data = processBehBonsai(data);
 end
-% (b) attempt to extract video frames for openField recording in Bonsai
-if ~isempty(idxVideo)
-    fprintf('Behavior: \n     Extract data from .csv file. ');
-    tic
-    opts = detectImportOptions(csvNames{idxVideo});
-    opts.SelectedVariableNames = opts.VariableNames(1);
-    tmp = readtable(csvNames{idxVideo}, opts);
-    frames = table(tmp{:,1}, 'VariableNames', {'TimeOfDay'});
-    bonsai_T0 = frames.TimeOfDay - frames.TimeOfDay(1);
-    beh_startSec = frames.TimeOfDay(1)./1000;      % convert to seconds
-    HMS(3) = HMS(3) + (beh_startSec - (HMS(1)*3600 + HMS(2)*60 + HMS(3))); % add millisecond precision
-    startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai behavior
-    frames.PhotoTime = bonsai_T0 - startDelay;     % new photometry-adjusted time
-    newTS = firstFrameBeforeEventIndex(frames.PhotoTime, data.gen.acqFs, numel(data.acq.FP{1}));
-    data.beh.frames = newTS; % frames relative to photometry signal
-    data.beh.framesTS = frames.PhotoTime;
-    toc
-    fprintf('\n');
-end
+
 %% SAVE
 if isfield(data.acq,'time')
     data.acq = rmfield(data.acq,'time'); % remove time vector to make data file smaller
@@ -163,6 +116,8 @@ data = rmfield(data,'acq'); % CAN CHANGE -- removes raw signals to reduce space
 saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
 save(fullfile(h5Path, saveName),'data');
 fprintf('\nSAVED %s \n\n',saveName);
+
+%%
 switch cohortSave
     case 'yes'
         cohortPath = uigetdir('Select cohort directory.',pwd);

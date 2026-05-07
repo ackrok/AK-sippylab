@@ -49,7 +49,7 @@ beh_photo.error = [];
 
 %%
 Fs = data.gen.Fs;
-nSamp = numel(data.acq.FP{1});
+nSamp = data.gen.acqSamp;
 
 %%
 % Syntax: newTS = firstFrameBeforeEventIndex(oldTS, time);
