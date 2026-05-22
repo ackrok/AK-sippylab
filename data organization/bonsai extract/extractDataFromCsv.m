@@ -63,7 +63,7 @@ if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
                         (length(fiberTS)-1)); %neurophotometrics acquisition rate
     acqFs = round (1 / fiberTriggerBin); % sampling rate
     data.gen.acqFs = acqFs;
-    data.gen.acqSamp = numel(data.acp.FP{1});
+    data.gen.acqSamp = numel(data.acq.FP{1});
 
     % process photometry data
     params = struct;

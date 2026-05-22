@@ -38,13 +38,20 @@ if ~isempty(idxState)
     if statetrans.Trial(1) == 0
         statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
     end
+    % beh_startSec = statetrans.TimeOfDay(1)./1000;  % convert to seconds
     bonsai_T0 = statetrans.TimeOfDay - statetrans.TimeOfDay(1);
-    beh_startSec = statetrans.TimeOfDay(1)./1000;  % convert to seconds
-    HMS(3) = HMS(3) + (beh_startSec - (HMS(1)*3600 + HMS(2)*60 + HMS(3))); % add millisecond precision
+    bonsai_T0 = bonsai_T0./1000; % convert to seconds
+    % HMS(3) = HMS(3) + (beh_startSec - (HMS(1)*3600 + HMS(2)*60 + HMS(3))); % add millisecond precision
+    
     % During data acquisition, bonsai / behavior acquisiton starts first and 
     % then wavesurfer / photometry acquisition. Thus, there will likely be
     % events/trials that occur prior to any photometry data. Later
     % processing will change time stamps for these events to NaN.
+    opts = inputdlg({sprintf('%s-%s: Bonsai Folder Creation Time (Hours in 24H Time)',data.mouse,data.date),'(Minutes)','Seconds'}, ...
+        sprintf('Input for %s-%s',data.mouse,data.date), [1 70].*ones(3,1));
+    HMS = nan(3,1); for ii = 1:3; HMS(ii) = str2double(opts{ii}); end
+    beh_startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
+
     startDelay = data.gen.startSec - beh_startSec; % wavesurfer starts AFTER bonsai behavior
     statetrans.PhotoTime = bonsai_T0 - startDelay; % new photometry-adjusted time
     fprintf('Behavior: \n     Extract data from .csv file. ');

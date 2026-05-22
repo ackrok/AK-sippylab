@@ -46,10 +46,14 @@ beh_photo.hits  = [];
 beh_photo.abort = [];
 beh_photo.miss  = [];
 beh_photo.error = [];
+try
+    beh_photo.startTime = beh.startTime;
+    beh_photo.startSec = beh.startSec;
+end
 
 %%
 Fs = data.gen.Fs;
-nSamp = data.gen.acqSamp;
+nSamp = numel(data.final.FP{1});
 
 %%
 % Syntax: newTS = firstFrameBeforeEventIndex(oldTS, time);

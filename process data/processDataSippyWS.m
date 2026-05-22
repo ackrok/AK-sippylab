@@ -9,9 +9,8 @@
 %   - no inputs necessary
 %   - script will prompt you to select files and input information:
 %       (1) Select Wavesurfer photometry output (.h5 file)
-%       (1) Select Bonsai behavior output (.csv file)
-%       (3) Dialog to recording identifyers
-%       (4) (optional) Select cohort path to save copy of .mat file
+%       (2) Dialog to recording identifyers
+%       (optional) Select cohort path to save copy of .mat file
 %
 % Output:
 %   'data' structure saved as .mat in same folder as photometry .h5 file.
@@ -19,19 +18,23 @@
 % Written by: Anya Krok, April 2026
 
 %%
-[h5Name,h5Path] = uigetfile('*.h5','Select photometry .h5', pwd);
+[h5NameAll,h5Path] = uigetfile('*.h5','Select photometry .h5', pwd, 'MultiSelect', 'on');
+if ~iscell(h5NameAll); h5NameAll = {h5NameAll}; end
 cd(h5Path);  % open file directory
+
+for thisFile = 1:length(h5NameAll)
+
+    h5Name = h5NameAll{thisFile};
 
 %% mouse/date identifiers from folder name
 try
-    tok = regexp(h5Name, '^([A-Za-z0-9]+)(?:_([^_]+))?_.*?(\d{4}-\d{2}-\d{2})', 'tokens', 'once');
+    tok = regexp(h5Name, '^([A-Za-z0-9]+).*?(\d{4}-\d{2}-\d{2})', 'tokens', 'once');
     mouse = tok{1}; % 'extract mouseID from file name
-    info  = tok{2}; % 'meth' or 'Ket25' (empty if absent)
-    ymd   = tok{3}; % 'extract date in 2026-05-05 format from file name
+    ymd   = tok{2}; % 'extract date in 2026-05-05 format from file name
     dt = datetime(ymd, 'InputFormat', 'yyyy-MM-dd'); % convert YYYY-MM-DD to 'YYMMDD'  
     date = char(dt, 'yyMMdd');     % '260505'
 catch
-    mouse = 'JT0XX'; date = 'YYMMDD'; info = '';
+    mouse = 'JT0XX'; date = 'YYMMDD';
 end
 
 params = struct;
@@ -73,7 +76,6 @@ fprintf('\nPhotometry: \n     Extract data from .h5 file. ');
 tic
 dataWS = extractH5_WS(fullfile(h5Path, h5Name));
 data   = createDataStruct(dataWS, mouse, date);
-data.info = info;
 data.gen.params = params; % add params to data structure
 data.gen.params.acqFs = data.gen.acqFs; % overwrite with actual acquision sampling rate
 data.gen.params.dsRate = data.gen.params.acqFs/50; % overwrite
@@ -88,7 +90,17 @@ switch length(data.acq.FPnames)
             data.acq.FPnames = data.acq.FPnames([2 1]);
         end
 end
-data.gen.acqSamp = numel(data.acp.FP{1});
+cutLenMin = floor((numel(data.acq.FP{1})/data.gen.acqFs)/60); % cutLength in minutes
+cutLenSamp = cutLenMin*60*data.gen.acqFs;
+for ii = 1:length(data.acq.FP)
+    data.acq.FP{ii} = data.acq.FP{ii}(1:cutLenSamp);
+end
+if isfield(data.acq,'refSig')
+    for ii = 1:length(data.acq.refSig)
+        data.acq.refSig{ii} = data.acq.refSig{ii}(1:cutLenSamp);
+    end
+end
+data.gen.acqSamp = numel(data.acq.FP{1});
 toc
 %% photometry: process
 fprintf('     Process photometry data. ');
@@ -97,6 +109,14 @@ data = processDual(data, data.gen.params); % if frequency modulation
 % data = processFP(data, data.gen.params); % if continuous excitation
 toc
 fprintf('\n');
+
+%% ttl if applicable
+if isfield(data.acq,'ttl')
+    for ii = 1:length(data.acq.ttl)
+        [tmpOn, tmpOff] = getPulseOnsetOffset(data.acq.ttl{ii}, 0.5);
+        data.final.ttl{ii} = [tmpOn(:)./data.gen.acqFs, tmpOff(:)./data.gen.acqFs];
+    end
+end
 
 %% behavior: process
 switch runBeh
@@ -111,7 +131,7 @@ end
 if isfield(data,'final') && isfield(data.final,'time')
     data.final = rmfield(data.final,'time'); 
 end
-data = rmfield(data,'acq'); % CAN CHANGE -- removes raw signals to reduce space
+% data = rmfield(data,'acq'); % CAN CHANGE -- removes raw signals to reduce space
 
 saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
 save(fullfile(h5Path, saveName),'data');
@@ -141,3 +161,5 @@ end
 %     xlabel('Time (s)'); ylabel('FP (dF/F)'); 
 %     title(data.final.FPnames{x});
 % end 
+
+end
