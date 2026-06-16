@@ -95,6 +95,12 @@ for a = 1:length(allPath)
     data.date = date;
     data.ID = sprintf('%s-%s',mouse,date); 
     data = extractDataFromCsv(data, frames, photoT, statetrans);
+        if ~isempty(photoT)
+        for n = 1:length(data.acq.FP)
+            data.acq.FPnames{n} = sigNames{n};
+            data.final.FPnames{n} = sigNames{n};
+        end
+    end
 
     %% start time
     [~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts
@@ -103,14 +109,6 @@ for a = 1:length(allPath)
     YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
     data.gen.startTime = [YMD;HMS]';
     data.gen.startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
-
-    %% photometry signal names
-    if ~isempty(photoT)
-        for n = 1:length(data.acq.FP)
-            data.acq.FPnames{n} = sigNames{n};
-            data.final.FPnames{n} = sigNames{n};
-        end
-    end
 
     %% save file in same folder where .csv files are located
     saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);

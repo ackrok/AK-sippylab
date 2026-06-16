@@ -40,15 +40,18 @@ if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
     end
 
     % select photometry 
-    opts = {'DA','5-HT','NE','GCaMP'};
-    choice = menu('Select photometry signal for green channel',opts);
-    data.acq.FPnames = opts(choice);
-    fprintf('green: %s. ',opts{choice});
-    if any(photo(:,3) == 4) % if used 565nm 
-        opts = {'rDA','RCaMP'};
-        choice = menu('Select photometry signal for red channel',opts);
-        data.acq.FPnames{2} = opts{choice};
-        fprintf('red: %s. ',opts{choice});
+    if isfield(data,'acq') && isfield(data.acq,'FPnames')
+    else
+        opts = {'DA','5-HT','NE','GCaMP'};
+        choice = menu('Select photometry signal for green channel',opts);
+        data.acq.FPnames = opts(choice);
+        fprintf('green: %s. ',opts{choice});
+        if any(photo(:,3) == 4) % if used 565nm 
+            opts = {'rDA','RCaMP'};
+            choice = menu('Select photometry signal for red channel',opts);
+            data.acq.FPnames{2} = opts{choice};
+            fprintf('red: %s. ',opts{choice});
+        end
     end
     data.acq.nFPchan = length(data.acq.FPnames);
     cutLength = floor(size(signalRaw{1},1)/300)*300;
@@ -92,7 +95,7 @@ if ~isempty(statetrans) && istable(statetrans)
     end
     try
         if isfield(data,'acq') && isfield(data.acq,'time')
-            beh = extract2AFCdataAK(statetrans,'photo'); % time stamps will be in bonsai computer time
+            beh = extract2AFCdataAK(statetrans); % time stamps will be in bonsai computer time
         else
             beh = extract2AFCdataAK(statetrans); % time stamps will be elapsed time
         end

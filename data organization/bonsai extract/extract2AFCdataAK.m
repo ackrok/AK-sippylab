@@ -39,7 +39,7 @@ TS0 = elapTime_0(:);
 if nargin == 2
     switch varargin{1}
         case 'photo'
-            TS0 = [statetrans.TimeOfDay]; % computer time
+            TS0 = [statetrans.TimeOfDay]./1000; % computer time, in seconds
             % For experiments with behavioral and photometry, then use fxn
             % 'firstFrameBeforeEventIndex' to convert time stamps to "samples"
             % for ease of alignment with photometry signal.
