@@ -31,8 +31,13 @@ if nargin < 3
 else
     winSec = params.winSec; 
     fmax   = params.fmax;
+    if isfield(params,'fmin')
+        fmin = params.fmin;
+    else
+        fmin = 0;
+    end
 end
-fvec = 0:0.1:fmax; % frequency vector covering range with desired resolution
+fvec = fmin:0.1:fmax; % frequency vector covering range with desired resolution
 
 % window properties
 win = round(winSec * Fs);     % window size is winSec * Fs

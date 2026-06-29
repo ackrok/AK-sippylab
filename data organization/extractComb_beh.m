@@ -52,14 +52,45 @@ for a = 1:length(filePath)
             idx = thisPathSubfolders{choice}; 
         end
         cd(fullfile(thisPath, thisPathSubfolders{idx}));
-        fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
+        d = dir("*.csv");                      % list csv files
+        filesCsv = string({d.name})';          % string array of names
+        fileBeh = filesCsv(contains(filesCsv,'StateTrans'));
+        % fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
     end
-    statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
-    if statetrans.Trial(1) == 0
-        statetrans.Trial = statetrans.Trial + 1;
+    
+    %% 2AFC task
+    if ~isempty(dir('State*.csv')) % if directory contains file StateTransitions.csv
+        fileBeh = dir('State*.csv');
+        statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
+        if statetrans.Trial(1) == 0 % Adjust for zero index
+            statetrans.Trial = statetrans.Trial + 1;
+        end
+        beh = extract2AFCdataAK(statetrans);
     end
-    beh = extract2AFCdataAK(statetrans);
 
+    %% Go NoGo task
+    if isempty(dir('State*.csv')) & ~isempty(fileBeh)
+        fileBeh = filesCsv(contains(filesCsv,'StateTrans'));
+        opts = delimitedTextImportOptions("NumVariables", 4);
+        opts.DataLines = [2, Inf];
+        opts.Delimiter = ",";
+        opts.VariableNames = ["Trial", "Id", "ElapsedTime"];
+        opts.SelectedVariableNames = ["Trial", "Id", "ElapsedTime"];
+        opts.VariableTypes = ["double", "categorical", "double"];
+        opts.ExtraColumnsRule = "ignore"; % Specify file level properties
+        opts.EmptyLineRule = "read"; % Specify file level properties
+        opts = setvaropts(opts, "Id", "EmptyFieldRule", "auto"); % Specify variable properties
+        statetrans = readtable(fileBeh, opts); % Import the data
+        if any(statetrans.Id == 'Joystick')
+            statetrans.Id = renamecats(statetrans.Id,"Joystick","Lick"); % Fix error in logging Lick as Joystick
+        end
+        if statetrans.Trial(1) == 0 % Adjust for zero index
+            statetrans.Trial = statetrans.Trial + 1;  % change to one-index
+        end
+        beh = extractGoNoGodataAK(statetrans);
+    end
+
+%% STORE
     str = thisPath; % string with file path
     mouse = regexp(str, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
     date = regexp(str, '\d{6}', 'match', 'once'); % extract any sequence of exactly six digits (e.g. 251215)
