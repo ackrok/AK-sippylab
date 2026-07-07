@@ -63,14 +63,11 @@ for a = 1:length(allPath)
     end
     opts = inputdlg({sprintf('%s \n\n\n Mouse ID:',filePath), ...
         'Recording Date:', ...
-        'Green channel (DA, 5-HT, NE, GCaMP)', ...
-        'Red channel (rDA, RCaMP)', ...
         'Save to cohort folder? (yes/no)'}, ...
-        'Input', [1 40].*ones(5,2), ...
-        {mouse, date, '', '', 'no'});
+        'Input', [1 40].*ones(3,2), ...
+        {mouse, date, 'no'});
     mouse = opts{1}; date = opts{2};
-    sigNames = {opts{3},opts{4}};
-    cohortSave = opts{5};
+    cohortSave = opts{3};
     
     %% extract data into workspace
     try % behavior output
@@ -95,12 +92,12 @@ for a = 1:length(allPath)
     data.date = date;
     data.ID = sprintf('%s-%s',mouse,date); 
     data = extractDataFromCsv(data, frames, photoT, statetrans);
-        if ~isempty(photoT)
-        for n = 1:length(data.acq.FP)
-            data.acq.FPnames{n} = sigNames{n};
-            data.final.FPnames{n} = sigNames{n};
-        end
-    end
+    % if ~isempty(photoT)
+    %     for n = 1:length(data.acq.FP)
+    %         data.acq.FPnames{n} = sigNames{n};
+    %         data.final.FPnames{n} = sigNames{n};
+    %     end
+    % end
 
     %% start time
     [~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts

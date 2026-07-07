@@ -21,53 +21,126 @@ fprintf('    Photometry: ')
 % Only runs if photometry data is present in table format as an input and
 % 'frames' is present
 if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
-    % identify colums R0 - G15 that include photometry values
-    idx = find(~isnan(table2array(photoT(1, 5:size(photoT,2))))); 
-    % extract data colums that have photometry signal
-    photo = table2array(photoT(:,[1:3, idx+4])); 
-    photo(1:length(frames),2)=frames(:,2);
-    
-    % R0 - red 
-    % R1 - green
-    signalRaw = {};
-    ledState = 2; % which LED state we are drawing from, ledState 2 is 470nm
-    if any(photo(:,3) == ledState)
-        signalRaw{1} = photo(photo(:,3)==ledState,[2,5]); 
-    end
-    ledState = 4; % which LED state we are drawing from, ledState 4 is 565nm
-    if any(photo(:,3) == ledState)
-        signalRaw{2} = photo(photo(:,3)==ledState,[2,4]); 
-    end
 
-    % select photometry 
-    if isfield(data,'acq') && isfield(data.acq,'FPnames')
-    else
-        opts = {'DA','5-HT','NE','GCaMP'};
-        choice = menu('Select photometry signal for green channel',opts);
-        data.acq.FPnames = opts(choice);
-        fprintf('green: %s. ',opts{choice});
-        if any(photo(:,3) == 4) % if used 565nm 
-            opts = {'rDA','RCaMP'};
-            choice = menu('Select photometry signal for red channel',opts);
-            data.acq.FPnames{2} = opts{choice};
-            fprintf('red: %s. ',opts{choice});
+    %%
+    % detect photometry columns (same logic as before)
+    opts = table2array(photoT(1,5:end));
+    idx = find(~isnan(opts)) + 4;  % absolute table column indices
+
+    % build photo array (cols: 1:3 are meta, then photometry cols)
+    photo = table2array(photoT(:, [1:3, idx]));
+
+    % adjust time stamps to be ELAPSED time
+    photo(:,2) = photo(:,2) - photo(1,2);
+
+    % variable names for the photometry columns
+    varNames = photoT.Properties.VariableNames(idx);
+
+    % classify photometry headers into G and R, keep numeric order
+    getNum = @(s) str2double(regexp(s,'\d+','match','once'));
+    isG = startsWith(varNames,'G','IgnoreCase',true);
+    isR = startsWith(varNames,'R','IgnoreCase',true);
+    
+    Gnames = varNames(isG);
+    Rnames = varNames(isR);
+    [~,ordG] = sort(cellfun(getNum,Gnames));
+    [~,ordR] = sort(cellfun(getNum,Rnames));
+    Gnames = Gnames(ordG);
+    Rnames = Rnames(ordR);
+
+    % time and LED state columns in photo
+    timeCol = 2;
+    ledCol = 3;
+
+    % map varNames to photo column indices (photo has photometry cols starting at col 4)
+    photStartCol = 4;
+    nameToPhotoCol = containers.Map(varNames, num2cell(photStartCol:(photStartCol+numel(varNames)-1)));
+    
+    %%
+    % build signalRaw: first all green channels, then all red channels
+    signalRaw = {};
+    % green channels (LED state for green assumed 2)
+    ledStateG = 2; % which LED state we are drawing from, ledState 2 is 470nm
+    for k = 1:numel(Gnames)
+        col = nameToPhotoCol(Gnames{k});
+        rows = photo(:,ledCol)==ledStateG;
+        if any(rows)
+            signalRaw{end+1} = photo(rows, [timeCol, col]); 
+        else
+            signalRaw{end+1} = []; 
         end
     end
-    data.acq.nFPchan = length(data.acq.FPnames);
-    cutLength = floor(size(signalRaw{1},1)/300)*300;
-    for ii = 1:data.acq.nFPchan
-        data.acq.time{ii} = signalRaw{ii}(1:cutLength, 1);
-        data.acq.FP{ii} = signalRaw{ii}(1:cutLength, 2);
+    % red channels (LED state for red assumed 4)
+    ledStateR = 4; % which LED state we are drawing from, ledState 4 is 565nm
+    for k = 1:numel(Rnames)
+        col = nameToPhotoCol(Rnames{k});
+        rows = photo(:,ledCol)==ledStateR;
+        if any(rows)
+            signalRaw{end+1} = photo(rows, [timeCol, col]); 
+        else
+            signalRaw{end+1} = []; 
+        end
+    end
+
+    %%
+    % prompt for FP names with an input dialog (one entry per detected channel)
+    nSignals = numel(signalRaw);
+    prompt = cell(1,nSignals);
+    default = cell(1,nSignals);
+    for k = 1:nSignals
+        if k <= numel(Gnames)
+            chanLabel = Gnames{k};
+            examples = 'eg, DA, 5-HT, NE, GCaMP';
+        else
+            chanLabel = Rnames{k - numel(Gnames)};
+            examples = 'eg, rDA, RCaMP';
+        end
+        prompt{k} = sprintf('Label for %s (%s):', chanLabel, examples);
+        default{k} = chanLabel; % draft from name (e.g., 'G0' or 'R2')
+    end
+    if ~isfield(data,'ID'), data.ID = [data.mouse,'-',data.date]; end
+    answer = inputdlg(prompt, data.ID, 1, default);
+    if isempty(answer)
+        error('User cancelled FP label input.');
+    end
+    % trim and store responses
+    data.acq.FPnames = strtrim(answer);
+
+    % finalize acquisition fields
+    data.acq.nFPchan = numel(data.acq.FPnames);
+    
+    % compute cutLength as largest multiple of 300 that fits all non-empty channels
+    lengths = cellfun(@(c) size(c,1), signalRaw);
+    lengths(lengths==0) = inf; % ignore empty channels for min computation
+    minLen = min(lengths);
+    if isinf(minLen)
+        cutLength = 0;
+    else
+        cutLength = floor(minLen/300)*300;
     end
     
+    % populate data.acq.time and data.acq.FP
+    for ii = 1:data.acq.nFPchan
+        if ~isempty(signalRaw{ii}) && cutLength>0
+            data.acq.time{ii} = signalRaw{ii}(1:cutLength,1);
+            data.acq.FP{ii}   = signalRaw{ii}(1:cutLength,2);
+        else
+            data.acq.time{ii} = [];
+            data.acq.FP{ii}   = [];
+        end
+    end
+
+    %%
     % compute acquisition rate
-    fiberTS = data.acq.time{1}/1e3;  %in seconds - not starting at zero
+    fiberTS = data.acq.time{1};
+    % fiberTS = data.acq.time{1}/1e3;  %in seconds - not starting at zero
     fiberTriggerBin = ((fiberTS(end-1,1)-fiberTS(1,1))/...
                         (length(fiberTS)-1)); %neurophotometrics acquisition rate
     acqFs = round (1 / fiberTriggerBin); % sampling rate
     data.gen.acqFs = acqFs;
     data.gen.acqSamp = numel(data.acq.FP{1});
-
+    
+    %%
     % process photometry data
     params = struct;
     params.FP.lpCut = 15; % Cut-off frequency for filter

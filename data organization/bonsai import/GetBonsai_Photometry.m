@@ -1,4 +1,4 @@
-function Photometry = GetBonsai_Photometry(filename, dataLines)
+function photoT = GetBonsai_Photometry(filename, dataLines)
 %IMPORTFILE Import data from a text file
 %  PHOTOMETRY20230726T134741 = IMPORTFILE(FILENAME) reads data from text
 %  file FILENAME for the default selection.  Returns the data as a table.
@@ -22,22 +22,75 @@ if nargin < 2
     dataLines = [2, Inf];
 end
 
+%%
+opts = detectImportOptions(filename,'NumHeaderLines',0);
+opts.PreserveVariableNames = true;
+Traw = readtable(filename, opts);
+
+% Ensure first 4 columns exist
+if width(Traw) < 4
+    error('Input must contain at least 4 columns for FrameCounter, SystemTimestamp, LedState, ComputerTimestamp.');
+end
+
+% Force names for first 4 columns
+first4names = {'FrameCounter','SystemTimestamp','LedState','ComputerTimestamp'};
+Traw.Properties.VariableNames(1:4) = first4names;
+
+% Target G and R columns
+target = {'G0','G1','G2','G3','R1','R2','R3','R4'};
+
+% Find which target columns are present (case-insensitive)
+rawNames = Traw.Properties.VariableNames;
+lowerNames = rawNames;
+present = false(size(target));
+idxPresent = zeros(size(target));
+for k = 1:numel(target)
+    m = strcmpi(lowerNames, target{k});
+    if any(m)
+        present(k) = true;
+        idxPresent(k) = find(m,1);
+    end
+end
+
+% Build output table starting with first 4
+photoT = Traw(:,1:4);
+
+% Append present G/R columns, converting to numeric if needed
+for k = 1:numel(target)
+    if present(k)
+        col = Traw.(rawNames{idxPresent(k)});
+        if ~isnumeric(col)
+            % Try to convert (handles strings, cellstr with numeric text)
+            colNum = str2double(string(col));
+            if all(~isnan(colNum) | ismissing(colNum))
+                col = colNum;
+            else
+                % try removing non-digit chars and convert
+                colNum = str2double(regexprep(string(col),'[^\d\.\-eE]',''));
+                col = colNum;
+            end
+        end
+        photoT.(target{k}) = col;
+    end
+end
+
+
 %% Set up the Import Options and import the data
-opts = delimitedTextImportOptions("NumVariables", 24);
-
-% Specify range and delimiter
-opts.DataLines = dataLines;
-opts.Delimiter = ",";
-
-% Specify column names and types
-opts.VariableNames = ["FrameCounter", "Timestamp", "LedState", "Stimulation", "Output0", "Output1", "Input0", "Input1", "Region0R", "Region1R", "Region2R", "Region3R", "Region4R", "Region5R", "Region6R", "Region7R", "Region8G", "Region9G", "Region10G", "Region11G", "Region12G", "Region13G", "Region14G", "Region15G"];
-opts.VariableTypes = ["double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double"];
-
-% Specify file level properties
-opts.ExtraColumnsRule = "ignore";
-opts.EmptyLineRule = "read";
-
-% Import the data
-Photometry = readtable(filename, opts);
+% opts = delimitedTextImportOptions("NumVariables", 24);
+% 
+% % Specify range and delimiter
+% opts.DataLines = dataLines;
+% opts.Delimiter = ",";
+% 
+% % Specify column names and types
+% opts.VariableNames = ["FrameCounter", "Timestamp", "LedState", "Stimulation", "Output0", "Output1", "Input0", "Input1", "Region0R", "Region1R", "Region2R", "Region3R", "Region4R", "Region5R", "Region6R", "Region7R", "Region8G", "Region9G", "Region10G", "Region11G", "Region12G", "Region13G", "Region14G", "Region15G"];
+% opts.VariableTypes = ["double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double"];
+% 
+% % Specify file level properties
+% opts.ExtraColumnsRule = "ignore";
+% opts.EmptyLineRule = "read";
+% 
+% % Import the data
+% photoT = readtable(filename, opts);
 
 end
