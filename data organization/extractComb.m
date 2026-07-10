@@ -29,6 +29,7 @@ switch nargin
         filePath = varargin{2};
         if ~iscell(fileName); fileName = {fileName}; end
 end
+fileName = sort(fileName);
     
 %% Extract data
 comb = struct; % Initialize
@@ -38,11 +39,14 @@ for a = 1:length(fileName)
     tic
     load(fullfile(filePath, fileName{a}),'data'); % load each .mat file
     comb = addDataComb(comb, data);
-    if ~isinteger(data.beh.trial.ledOn(1))
-        if isfield(data,'acq')
-            data.beh = extract2AFCdataAK(data.acq.beh);
-            comb(a).beh = data.beh;
+    try
+        if ~isinteger(data.beh.trial.ledOn(1))
+            if isfield(data,'acq')
+                data.beh = extract2AFCdataAK(data.acq.beh);
+                comb(a).beh = data.beh;
+            end
         end
+    catch
     end
     toc
 end

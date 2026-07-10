@@ -31,20 +31,24 @@ try
 catch
     comb(a).rec   = [data.mouse,'-',data.date]; % recording ID
 end
-comb(a).Fs = data.gen.Fs;
-if isfield(data.final,'FP')
-    comb(a).FP = data.final.FP;
-    comb(a).FPnames = data.final.FPnames;
-    try
-        comb(a).time = data.final.time;
-    catch
-        comb(a).time = makeTime(numel(comb(a).FP{1}),comb(a).Fs);
-    end
-    if isfield(data.final,'nbFP')
-        comb(a).nbFP = data.final.nbFP; % demodulated, non-baselined signal
+if isfield(data,'final')
+    if isfield(data.final,'FP')
+        comb(a).Fs = data.gen.Fs;
+        comb(a).FP = data.final.FP;
+        comb(a).FPnames = data.final.FPnames;
+        try
+            comb(a).time = data.final.time;
+        catch
+            comb(a).time = makeTime(numel(comb(a).FP{1}),comb(a).Fs);
+        end
+        if isfield(data.final,'nbFP')
+            comb(a).nbFP = data.final.nbFP; % demodulated, non-baselined signal
+        end
     end
 end
 if isfield(data,'beh')
     comb(a).beh = data.beh;
 end
-comb(a).gen = data.gen;
+if isfield(data,'gen')
+    comb(a).gen = data.gen;
+end

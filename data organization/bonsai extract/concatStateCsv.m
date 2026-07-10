@@ -29,28 +29,42 @@ for a = 1:length(filePath)
     tic
     thisPath = filePath{a};
     cd(thisPath);
-    fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
-    T = readtable(fileBeh.name, 'VariableNamingRule', 'preserve');
+    d = dir("*.csv");                      % list csv files
+    filesCsv = string({d.name})';          % string array of names
+    fileBeh = filesCsv(contains(filesCsv,'StateTrans'));
+    T = readtable(fileBeh, 'VariableNamingRule', 'preserve');
     if isempty(T); continue; end
-    % remove last trial if does not meet parameters
-    lastAct = T.("Item2.Id")(end); lastAct = lastAct{1};
-    opts = {'Hit','LeftHit','RightHit','Miss','IncorrectAction','Timeout'};
-    lastTrial = T.("Item2.Trial")(end); % last tria; number
-    if ~any(ismember(opts, lastAct))
-        T(T.("Item2.Trial") == lastTrial, :) = []; % remove last trial
+
+    % extract column 'Item2.Trial' or 'Trial' from table T into vector vals
+    cands = {'Item2.Trial','Trial'};
+    vn = cands(find(ismember(cands, T.Properties.VariableNames), 1));
+    if isempty(vn)
+        error('Neither ''Item2.Trial'' nor ''Trial'' found in table T.');
     end
-    if isempty(T); continue; end
+    trials = T{:, vn};          % contents of entire column
+    trials = trials(:);         % ensure column vector
+
+    if T.(vn{1})(1) == 0
+        T.(vn{1}) = T.(vn{1}) + 1; % zero-index to one-index
+    end
+
     % concatenate
     if a == 1
         Tall = T;
     elseif a > 1
-        lastTrial = Tall.("Item2.Trial")(end); % last trial number for concatenated table
-        if T.("Item2.Trial")(1) == 0
-            lastTrial = lastTrial + 1; % account for zero index
-        end
-        T.("Item2.Trial") = T.("Item2.Trial") + lastTrial;
+        lastTrial = T.(vn{1})(end); % last trial number for concatenated table
+        T.(vn{1}) = T.(vn{1}) + lastTrial;
         Tall = [Tall; T];
-    end     
+    end
+
+    % % remove last trial if does not meet parameters
+    % lastAct = T.("Item2.Id")(end); lastAct = lastAct{1};
+    % opts = {'Hit','LeftHit','RightHit','Miss','IncorrectAction','Timeout'};
+    % lastTrial = T.("Item2.Trial")(end); % last tria; number
+    % if ~any(ismember(opts, lastAct))
+    %     T(T.("Item2.Trial") == lastTrial, :) = []; % remove last trial
+    % end
+    % if isempty(T); continue; end
     toc
     fprintf('Table %d of %d concatenated \n',a,length(filePath));
 end

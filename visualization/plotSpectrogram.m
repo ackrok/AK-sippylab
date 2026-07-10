@@ -10,7 +10,7 @@ b = menu('Input',comb(1).FPnames); % select which signal to analyze
 out = struct;
 tic
 for a = 1:length(comb)
-    signal = comb(a).FP{b};  % signal
+    signal = comb(a).nbFP{b};  % signal
     Fs = comb(a).Fs;         % sampling frequency, Hz
     params.winSec = 10; params.fmax = 15; % parameters
     [P, T, F] = getWelch(signal, Fs, params); % ANALYZE
@@ -21,9 +21,9 @@ toc
 
 %% Band power
 band = [1 5]; % Hz
-win1 = [0 5]; % baseline window pre-injection
-win2 = [12 15]; % post-injection window
-inj  = 11; % injection time
+win1 = [0 13]; % baseline window pre-injection
+win2 = [16 17]; % post-injection window
+inj  = 15; % injection time
 
 % compute band power for each time bin, output is 1 x nTimeBins 
 for a = 1:length(out)
@@ -54,7 +54,7 @@ for x = 1:length(uni)
     xlabel('time from injection (min)'); xlim([-10 20]);
     ylabel(sprintf('power in RSP (%d-%d Hz)', band(1), band(2))); ylim([0 1]);
     title(sprintf('Band Power - %s',out(a).mouse))
-    legend({'saline','ketamine'});
+    legend({'saline','saline','ketamine'});
 end
 
 %% Plot comparison of mean band power

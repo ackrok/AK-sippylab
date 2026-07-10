@@ -4,70 +4,73 @@
 % Adapted from processDataSippy, extractDataFromCsv to accomodate Go/NoGo
 
 %% FIND DIRECTORY
-filePath = uigetdir(pwd);
-cd(filePath);
+[allPath] = uigetdir2; % Essentially multiselect directories, returns filePath in cell array
+% filePath = uigetdir(pwd);
 
-d = dir("*.csv");                      % list csv files
-filesCsv = string({d.name})';          % string array of names
-fileBeh = filesCsv(contains(filesCsv,'StateTrans'));
-
-%% IMPORT STATETRANS
+%% Import OPTS
 opts = delimitedTextImportOptions("NumVariables", 4);
-
-% Specify range and delimiter
-opts.DataLines = [2, Inf];
+opts.DataLines = [2, Inf]; % Specify range and delimiter
 opts.Delimiter = ",";
-
 % Specify column names and types
 opts.VariableNames = ["Trial", "Id", "ElapsedTime"];
 opts.SelectedVariableNames = ["Trial", "Id", "ElapsedTime"];
 opts.VariableTypes = ["double", "categorical", "double"];
-
 % Specify file level properties
 opts.ExtraColumnsRule = "ignore";
 opts.EmptyLineRule = "read";
-
 % Specify variable properties
 opts = setvaropts(opts, "Id", "EmptyFieldRule", "auto");
 
-% Import the data
-statetrans = readtable(fileBeh, opts);
+%%
+for a = 1:length(allPath)
+    filePath = allPath{a};
+    cd(filePath);
 
-% Fix error in logging Lick as Joystick
-if any(statetrans.Id == 'Joystick')
-    statetrans.Id = renamecats(statetrans.Id,"Joystick","Lick"); 
+    d = dir("*.csv");                      % list csv files
+    filesCsv = string({d.name})';          % string array of names
+    fileBeh = filesCsv(contains(filesCsv,'StateTrans'));
+    
+    %% IMPORT STATETRANS
+    % Import the data
+    statetrans = readtable(fileBeh, opts);
+    
+    % Fix error in logging Lick as Joystick
+    if any(statetrans.Id == 'Joystick')
+        statetrans.Id = renamecats(statetrans.Id,"Joystick","Lick"); 
+    end
+    
+    % Adjust for zero index
+    if statetrans.Trial(1) == 0
+        statetrans.Trial = statetrans.Trial + 1;  % change to one-index
+    end
+    
+    %% MOUSE ID
+    try
+        mouse = regexp(filePath, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
+        date = regexp(filePath, '\d{4}-\d{2}-\d{2}', 'match', 'once'); % extract sequence of XXXX-XX-XX
+        date = date(3:end); date = regexprep(date, '-', ''); % YYMMDD format
+    catch
+        mouse = 'JT0XX'; date = 'YYMMDD';
+    end
+    answer = inputdlg({sprintf('%s \n\n\n Mouse ID:',filePath), ...
+        'Recording Date:'}, ...
+        'Input', [1 40].*ones(2,2), ...
+        {mouse, date});
+    mouse = answer{1}; date = answer{2};
+    
+    %% DATA STRUCTURE
+    data = struct;
+    data.mouse = mouse;
+    data.date = date;
+    data.ID = sprintf('%s-%s',mouse,date); 
+    
+    %% PROCESS BEHAVIOR
+    beh = extractGoNoGodataAK(statetrans);
+    data.beh = beh;
+    data.acq.beh = statetrans;
+    
+    %% SAVE
+    saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
+    save(fullfile(filePath, saveName), 'data');
+
 end
-
-% Adjust for zero index
-if statetrans.Trial(1) == 0
-    statetrans.Trial = statetrans.Trial + 1;  % change to one-index
-end
-
-%% MOUSE ID
-try
-    mouse = regexp(filePath, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
-    date = regexp(filePath, '\d{4}-\d{2}-\d{2}', 'match', 'once'); % extract sequence of XXXX-XX-XX
-    date = date(3:end); date = regexprep(date, '-', ''); % YYMMDD format
-catch
-    mouse = 'JT0XX'; date = 'YYMMDD';
-end
-opts = inputdlg({sprintf('%s \n\n\n Mouse ID:',filePath), ...
-    'Recording Date:'}, ...
-    'Input', [1 40].*ones(2,2), ...
-    {mouse, date});
-mouse = opts{1}; date = opts{2};
-
-%% DATA STRUCTURE
-data = struct;
-data.mouse = mouse;
-data.date = date;
-data.ID = sprintf('%s-%s',mouse,date); 
-
-%% PROCESS BEHAVIOR
-beh = extractGoNoGodataAK(statetrans);
-data.beh = beh;
-data.acq.beh = statetrans;
-
-%% SAVE
-saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
-save(fullfile(filePath, saveName), 'data');
