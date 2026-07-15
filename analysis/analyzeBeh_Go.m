@@ -57,6 +57,7 @@ for j = 1:length(uniMouse)
     iri = cell(length(match),1);
     endTime = []; 
     dprime = [];
+    catchWrong = [];
 
     for a = 1:length(match)
         mouse = comb(match(a)).mouse; % Store to be able to check in case of errors 
@@ -87,8 +88,11 @@ for j = 1:length(uniMouse)
 
         % d-prime
         nHit = height(beh.hit);
-        nTr = height(beh.trial);
-        dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));    
+        nTr = height(beh.hit) + height(beh.miss);
+        dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
+
+        % catchWrong
+        catchWrong(a) = height(beh.catchHit)./(height(beh.catchHit)+height(beh.catchMiss));
 
         % Generate matrix of licks aligned to rewarded Hit trials
         hits = beh.hit.end;
@@ -121,6 +125,7 @@ for j = 1:length(uniMouse)
 
     out(j).outcome = array2table(lastOutcome, 'VariableNames', lblOutcomes);
     out(j).dprime  = dprime(:);
+    out(j).catchWrong = catchWrong(:);
     out(j).lick    = cell2table(lickHit, 'VariableNames', lblLickHit);
     out(j).lickTime = peth.time;
     out(j).rewTime = array2table(rewTime, 'VariableNames', lblRewTime);
