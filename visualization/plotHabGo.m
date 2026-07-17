@@ -31,7 +31,7 @@ tic
 str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
 outcome = table2array(out.outcome);
 nHit   = sum(outcome(:,1), 2);
-nTr    = sum(outcome(:,1:4), 2);
+nTr    = sum(outcome(:,1:2), 2);
 dprime = out.dprime;
 catchWrong = out.catchWrong;
 
@@ -64,7 +64,7 @@ ax(p).YLim(1) = 0; ax(p).YLim(2) = max(200, ax(p).YLim(2));
 
 str = sprintf('%s - total #hits / total #trial\n', out.mouse);
 nHit = sum(outcome(:,1), 2);
-nTr  = sum(outcome, 2);
+nTr  = sum(outcome(:,1:2, 2);
 parts = compose('(%d)%d/%d. ', (1:nGroup).', nHit, nTr);   % string array, one element per group
 str = [str, char(strjoin(parts, ''))];
 title(str);

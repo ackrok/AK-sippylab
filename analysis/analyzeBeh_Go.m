@@ -56,7 +56,7 @@ for j = 1:length(uniMouse)
     lblTimes = {'tone to hit','tone to miss','tone to catchHit','tone to catchMiss'};
     iri = cell(length(match),1);
     endTime = []; 
-    dprime = [];
+    dprime = []; hitrate = [];
     catchWrong = [];
 
     for a = 1:length(match)
@@ -90,6 +90,10 @@ for j = 1:length(uniMouse)
         nHit = height(beh.hit);
         nTr = height(beh.hit) + height(beh.miss);
         dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
+
+        % hit rate
+        % number of hits / number of trials with Go tone (hits + miss)
+        hitrate(a) = nHit/nTr;
 
         % catchWrong
         catchWrong(a) = height(beh.catchHit)./(height(beh.catchHit)+height(beh.catchMiss));
@@ -125,6 +129,7 @@ for j = 1:length(uniMouse)
 
     out(j).outcome = array2table(lastOutcome, 'VariableNames', lblOutcomes);
     out(j).dprime  = dprime(:);
+    out(j).hitrate = hitrate(:);
     out(j).catchWrong = catchWrong(:);
     out(j).lick    = cell2table(lickHit, 'VariableNames', lblLickHit);
     out(j).lickTime = peth.time;
