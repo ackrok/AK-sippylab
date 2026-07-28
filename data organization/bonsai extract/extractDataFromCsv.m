@@ -183,15 +183,16 @@ if ~isempty(statetrans) && istable(statetrans)
             data.beh = beh;
             data.acq.beh = statetrans;
             if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
-            try
-                data = alignBehTStoPhotoTS_GoNoGo(data); % frame relative to photometry signal    
-            catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+                try
+                    data = alignBehTStoPhotoTS_GoNoGo(data); % frame relative to photometry signal    
+                catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+                end
             end
             fprintf('DONE!\n');
         catch
             fprintf('error processing.');
         end
-        end
+    end
 else
     data.beh = [];
     fprintf('no data found.\n');
