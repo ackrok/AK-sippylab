@@ -44,9 +44,12 @@ for a = 1:length(allPath)
             idx = thisPathSubfolders{choice}; 
         end
         cd(fullfile(thisPath, thisPathSubfolders{idx}));
-        fileBeh = dir('State*.csv'); % check for .csv files starting with "State'
+        %fileBeh = dir('State*.csv');  % check for .csv files starting with "State'
         filePhoto = dir('Photo*.csv'); % check for .csv files starting with "Photo..."
         fileFrames = dir('Frames*.csv'); 
+        d = dir("*.csv");             % list csv files
+        filesCsv = string({d.name})'; % string array of names
+        fileBeh = filesCsv(contains(filesCsv,'StateTrans'));
         c = c + 1; % add to ticker
         if c > 3
             break % exit loop when count exceeds 3
@@ -70,12 +73,30 @@ for a = 1:length(allPath)
     cohortSave = opts{3};
     
     %% extract data into workspace
-    try % behavior output
+    try % behavior output, 2AFC task
         statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh.name);
+    catch
+        try % Go NoGo task
+            opts = delimitedTextImportOptions("NumVariables", 4);
+            opts.DataLines = [2, Inf];
+            opts.Delimiter = ",";
+            opts.VariableNames = ["Trial", "Id", "ElapsedTime"];
+            opts.SelectedVariableNames = ["Trial", "Id", "ElapsedTime"];
+            opts.VariableTypes = ["double", "categorical", "double"];
+            opts.ExtraColumnsRule = "ignore"; % Specify file level properties
+            opts.EmptyLineRule = "read"; % Specify file level properties
+            opts = setvaropts(opts, "Id", "EmptyFieldRule", "auto"); % Specify variable properties
+            statetrans = readtable(fileBeh, opts); % Import the data
+            if any(statetrans.Id == 'Joystick')
+                statetrans.Id = renamecats(statetrans.Id,"Joystick","Lick"); % Fix error in logging Lick as Joystick
+            end
+        catch, statetrans = [];
+        end
+    end
+    if ~isempty(statetrans) && istable(statetrans)
         if statetrans.Trial(1) == 0
             statetrans.Trial = statetrans.Trial + 1;
         end
-    catch, statetrans = [];
     end
     try % photometry
         photoT = GetBonsai_Photometry(filePhoto.name);

@@ -166,25 +166,28 @@ if ~isempty(statetrans) && istable(statetrans)
     if statetrans.Trial(1) == 0
         statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
     end
-    try
-        if isfield(data,'acq') && isfield(data.acq,'time')
-            beh = extract2AFCdataAK(statetrans); % time stamps will be in bonsai computer time
-        else
-            beh = extract2AFCdataAK(statetrans); % time stamps will be elapsed time
-        end
+    try % process Bonsai 2AFC behavioral data
+        beh = extract2AFCdataAK(statetrans);
         data.beh = beh;
         data.acq.beh = statetrans;
+    catch 
+        try % process Bonsai GoNoGo behavioral data
+            beh = extractGoNoGodataAK(statetrans);
+            data.beh = beh;
+            data.acq.beh = statetrans;
+        catch
+            fprintf('error processing.');
+        end
+    end
+    if isfield(data,'beh')
         if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
             try
                 data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
             catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
             end
         end
-        fprintf('DONE!\n');
-    catch
-        fprintf('error processing.');
+            fprintf('DONE!\n');
     end
-
 else
     data.beh = [];
     fprintf('no data found.\n');
