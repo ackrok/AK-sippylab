@@ -77,7 +77,7 @@ for a = 1:length(allPath)
     %% extract data into workspace
     try
         if contains(fileBeh, 'GoTone', 'IgnoreCase', true)
-            behType = 'GoNoGo';
+            data.gen.behType = 'GoNoGo';
             opts = delimitedTextImportOptions("NumVariables", 4);
             opts.DataLines = [2, Inf];
             opts.Delimiter = ",";
@@ -91,9 +91,10 @@ for a = 1:length(allPath)
             if any(statetrans.Id == 'Joystick')
                 statetrans.Id = renamecats(statetrans.Id,"Joystick","Lick"); % Fix error in logging Lick as Joystick
             end
+
         else % behavior output, 2AFC task
             statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh);
-            behType = '2AFC';
+            data.gen.behType = '2AFC';
         end
     catch, statetrans = [];
     end
@@ -116,7 +117,6 @@ for a = 1:length(allPath)
     data.mouse = mouse; 
     data.date = date;
     data.ID = sprintf('%s-%s',mouse,date); 
-    data.gen.behType = behType;
     data = extractDataFromCsv(data, frames, photoT, statetrans);
     % if ~isempty(photoT)
     %     for n = 1:length(data.acq.FP)

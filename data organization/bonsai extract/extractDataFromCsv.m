@@ -166,32 +166,32 @@ if ~isempty(statetrans) && istable(statetrans)
     if statetrans.Trial(1) == 0
         statetrans.Trial = statetrans.Trial + 1; % change zero- to one-index
     end
-    try % process Bonsai 2AFC behavioral data
-        beh = extract2AFCdataAK(statetrans);
-        data.beh = beh;
-        data.acq.beh = statetrans;
-        if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
-            try
-                data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
-            catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
-            end
-        end
-        fprintf('DONE!\n');
-    catch 
-        try % process Bonsai GoNoGo behavioral data
-            beh = extractGoNoGodataAK(statetrans);
-            data.beh = beh;
-            data.acq.beh = statetrans;
-            if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
-                try
-                    data = alignBehTStoPhotoTS_GoNoGo(data); % frame relative to photometry signal    
-                catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+    try
+        switch data.gen.behType
+            case '2AFC'
+                beh = extract2AFCdataAK(statetrans);
+                data.beh = beh;
+                data.acq.beh = statetrans;
+                if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
+                    try
+                        data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
+                    catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+                    end
                 end
-            end
-            fprintf('DONE!\n');
-        catch
-            fprintf('error processing.');
+                fprintf('DONE!\n');
+            case 'GoNoGo'
+                beh = extractGoNoGodataAK(statetrans);
+                data.beh = beh;
+                data.acq.beh = statetrans;
+                if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
+                    try
+                        data = alignBehTStoPhotoTS_GoNoGo(data); % frame relative to photometry signal    
+                    catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+                    end
+                end
+                fprintf('DONE!\n');
         end
+    catch, fprintf('error processing.');
     end
 else
     data.beh = [];
