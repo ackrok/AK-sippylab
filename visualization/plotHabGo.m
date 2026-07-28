@@ -31,13 +31,13 @@ tic
 str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
 outcome = table2array(out.outcome);
 nHit   = sum(outcome(:,1), 2);
-nTr    = sum(outcome(:,1:4), 2);
+nTrGo  = sum(outcome(:,1:2), 2);
 dprime = out.dprime;
 
 lines = arrayfun(@(a) sprintf(...
-    '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. end at %d min.\n', ...
-    a, out.date{a}, nHit(a), nTr(a), round(100*nHit(a)/nTr(a)), ...
-    dprime(a), round(out.endTime(a)) ), ...
+    '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. nogoCR = %1.2f. catchNoLick = %1.2f. end at %d min.\n', ...
+    a, out.date{a}, nHit(a), nTrGo(a), round(100*nHit(a)/nTrGo(a)), ...
+    dprime(a), out.crRate(a), out.catchRate(a), round(out.endTime(a)) ), ...
     (1:nGroup).', 'UniformOutput', false);
 
 str = [str, strcat(lines{:})];
@@ -63,13 +63,39 @@ ax(p).YLim(1) = 0; ax(p).YLim(2) = max(200, ax(p).YLim(2));
 
 str = sprintf('%s - total #hits / total #trial\n', out.mouse);
 nHit = sum(outcome(:,1), 2);
-nTr  = sum(outcome, 2);
-parts = compose('(%d)%d/%d. ', (1:nGroup).', nHit, nTr);   % string array, one element per group
+nTrGo  = sum(outcome(:,1:2), 2);
+parts = compose('(%d)%d/%d. ', (1:nGroup).', nHit, nTrGo);   % string array, one element per group
 str = [str, char(strjoin(parts, ''))];
 title(str);
 
-%% (2) lick vector to reward
+%% (2) time to hit from tone
 p = 2;
+
+event = table2cell(out.event);
+lbl = out.outcome.Properties.VariableNames;
+
+ax(p) = subplot(spX, spY, p); hold on
+for a = 1:length(event)
+    tone_mu = cellfun(@(x) mean(x(:)), event(:,a));
+    tone_sem = cellfun(@(x) std(x(:)), event(:,a))./sqrt(cellfun(@(x) numel(x(:)), event(:,a)));
+
+    errorbar(1:nGroup, tone_mu, tone_sem,...
+        '-o', 'MarkerSize',10, 'LineStyle','none', ...
+        'MarkerFaceColor',clr(a,:), 'Color',clr(a,:), 'DisplayName', lbl{a});
+end
+
+xlim([0.5 0.5+nGroup]); xticks(1:nGroup);
+xlabel('recording date'); xticklabels(out.date);  
+ylabel('time from tone to event (s)');
+ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
+legend; legend('Location','southwest');
+str = sprintf('tone to event (s):\n hit:');
+parts = compose(' (%d) %.1f.', (1:nGroup).', cellfun(@(x) mean(x(:)), event(:,1)));
+str = [str, char(strjoin(parts, ''))];
+title(str);
+
+%% (3) lick vector to reward
+p = 3;
 
 % bin = 0.1; % bin width, in seconds
 % win = [-1 1]; % window, in seconds
@@ -89,8 +115,8 @@ ylabel('licks (Hz)');
 title('lick frequency to reward');
 legend('Location','northwest');
 
-%% (3) timing of rewards
-p = 3;
+%% (4) timing of rewards
+p = 4;
 
 rewTime = table2array(out.rewTime);
 lbl = out.rewTime.Properties.VariableNames;
@@ -106,48 +132,6 @@ ylabel('time to reward (min)');
 legend(lbl,'location','west');
 str = sprintf('last rew at (min):\n');
 parts = compose(' (%d) %d.', (1:nGroup).', round(rewTime(:,2)));
-str = [str, char(strjoin(parts, ''))];
-title(str);
-
-%% (4) time to hit from tone
-p = 4;
-
-event = table2cell(out.event);
-a = 1; % hit
-toneH_mu = cellfun(@(x) mean(x(:)), event(:,a));
-toneH_sem = cellfun(@(x) std(x(:)), event(:,a))./sqrt(cellfun(@(x) numel(x(:)), event(:,a)));
-a = 3; % catchHit
-toneCH_mu = cellfun(@(x) mean(x(:)), event(:,a));
-toneCH_sem = cellfun(@(x) std(x(:)), event(:,a))./sqrt(cellfun(@(x) numel(x(:)), event(:,a)));
-a = 2; % miss
-toneM_mu = cellfun(@(x) mean(x(:)), event(:,a));
-toneM_sem = cellfun(@(x) std(x(:)), event(:,a))./sqrt(cellfun(@(x) numel(x(:)), event(:,a)));
-a = 4; % catchMiss
-toneCM_mu = cellfun(@(x) mean(x(:)), event(:,a));
-toneCM_sem = cellfun(@(x) std(x(:)), event(:,a))./sqrt(cellfun(@(x) numel(x(:)), event(:,a)));
-
-
-ax(p) = subplot(spX, spY, p); hold on
-errorbar(1:nGroup, toneH_mu, toneH_sem,...
-    '-o', 'MarkerSize',10, 'LineStyle','none', ...
-    'MarkerFaceColor',clr(1,:), 'Color',clr(1,:), 'DisplayName', 'hit');
-errorbar(1:nGroup, toneCH_mu, toneCH_sem,...
-    '-o', 'MarkerSize',10, 'LineStyle','none', ...
-    'MarkerFaceColor',clr(6,:), 'Color',clr(6,:), 'DisplayName', 'catchHit');
-errorbar(1:nGroup, toneM_mu, toneM_sem, ...
-    '-o', 'MarkerSize',10, 'LineStyle','none', ...
-    'MarkerFaceColor',clr(2,:), 'Color',clr(2,:), 'DisplayName', 'miss');
-errorbar(1:nGroup, toneCM_mu, toneCM_sem, ...
-    '-o', 'MarkerSize',10, 'LineStyle','none', ...
-    'MarkerFaceColor',clr(4,:), 'Color',clr(4,:), 'DisplayName', 'catchMiss');
-
-xlim([0.5 0.5+nGroup]); xticks(1:nGroup);
-xlabel('recording date'); xticklabels(out.date);  
-ylabel('time from tone to event (s)');
-ax(p).YLim(1) = 0; % y-axis to start at 0 seconds
-legend; legend('Location','southwest');
-str = sprintf('tone to event (s):\n');
-parts = compose(' (%d) %.1f.', (1:nGroup).', toneH_mu(:));
 str = [str, char(strjoin(parts, ''))];
 title(str);
 

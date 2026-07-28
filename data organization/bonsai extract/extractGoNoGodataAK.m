@@ -42,15 +42,13 @@ ids    = string(statetrans.Id); % convert to string for easier comparison
 beh = struct;
 
 %% table checks
-
-% Adjustments if data collection ended in the middle of a trial:
-% note that 2AFC trials should include ITI, LEDon if valid.
-
+% Adjustments if data collection ended in the middle of a trial.
+% Note that GoNoGo trials should start with ITI if valid. All trials can be
+% categorized by presentation of (a) Go tone, (b) NoGo tone, (c) Catch.
 trials = unique(statetrans.Trial,'stable');    % unique trial identifiers, stable order
 isITI = strcmpi(ids,'ITI');   % logical mask for ITI rows
 
-% For each trial, find the row index of the first ITI occurrence and
-% the first LEDon occurrence
+% For each trial, find the row index of the first ITI occurrence
 idxITI = NaN(numel(trials),1); % initialize vector of NaNs
 for k = 1:numel(trials)
     maskITI = isITI & ismember(statetrans.Trial, trials(k)); % logical mask for ITI rows
@@ -73,6 +71,14 @@ end
 %     statetrans(end,:) = [];
 % end
 
+% Remove last trial if does not end with appropriate possible outcome
+ids = string(statetrans.Id);      % re-extract given updated statetrans
+G = findgroups(statetrans.Trial); % re-extract given updated statetrans
+outcomes = {'hit','miss','correctrejection','falsealarm','catchhit','catchmiss'};
+if ~any(strcmpi(outcomes, statetrans.Id(end)))
+    statetrans(G == G(end), :) = []; % remove last trial
+end
+
 %% re-extract given updated statetrans
 clearvars -except statetrans TS0
 trials = unique(statetrans.Trial, 'stable'); % update unique trials
@@ -92,28 +98,35 @@ end
 % TRIAL START
 trialStart = TS0(strcmpi(ids, 'ITI'));
 
-% GO TONE or CATCH trial
+% GO TONE or NOGO TONE or CATCH trial
 maskGo    = find(strcmpi(ids,'go'));
+maskNoGo  = find(strcmpi(ids,'nogo'));
 maskCatch = find(strcmpi(ids,'catchtrial'));
 trialGo   = statetrans.Trial(maskGo);
+trialNoGo = statetrans.Trial(maskNoGo);
 trialCatch = statetrans.Trial(maskCatch);
 
 % TRIAL LABEL
 trialLbl = strings(nTrial,1); % initialize string vector
 trialLbl(trialGo) = "goTone";
+trialLbl(trialNoGo) = "nogoTone";
 trialLbl(trialCatch) = "catch";
 
 % TONE
 tone = zeros(nTrial,1);
-tone(trialGo) = TS0(maskGo); % time stamp
-tone(trialCatch) = TS0(maskCatch); % time stamp
+tone(trialGo) = TS0(maskGo); % time stamp of tone
+tone(trialNoGo) = TS0(maskNoGo); % time stamp of tone
+tone(trialCatch) = TS0(maskCatch); % time stamp of catch
 
 % LAST ACT
 % For each group, take the last Id (last row within that trial)
-lastAct = splitapply(@(ids) ids(end), ids, G);  % categorical array, one per trial
+lastAct = splitapply(@(ids) ids(end), ids, G);   % categorical array, one per trial
 
 % TRIAL END
-% Last event in trial, eg. 'Hit', 'Miss', 'CatchHit', 'CatchMiss'
+% Last event in trial
+% Go tone: Hit or Miss
+% NoGo tone: CorrectRejection or False Alarm
+% Catch trial: CatchHit or CatchMiss
 idx = nan(nTrial,1);
 for n = 1:nTrial
     idx(n) = find([statetrans.Trial] == n, 1, 'last');
@@ -166,6 +179,14 @@ hit = table(trial.num(mask), trial.tone(mask), trial.end(mask), ...
 mask = strcmpi(trial.label,'goTone') & strcmpi(trial.outcome,'Miss'); 
 miss = table(trial.num(mask), trial.tone(mask), trial.end(mask), ...
     'VariableNames', {'num','tone','end'});
+
+mask = strcmpi(trial.label,'nogoTone') & strcmpi(trial.outcome,'CorrectRejection');
+nogoCR = table(trial.num(mask), trial.tone(mask), trial.end(mask), ...
+    'VariableNames', {'num','tone','end'});
+mask = strcmpi(trial.label,'nogoTone') & strcmpi(trial.outcome,'FalseAlarm'); 
+nogoFA = table(trial.num(mask), trial.tone(mask), trial.end(mask), ...
+    'VariableNames', {'num','tone','end'});
+
 mask = strcmpi(trial.label,'catch') & strcmpi(trial.outcome,'CatchHit');
 catchHit = table(trial.num(mask), trial.tone(mask), trial.end(mask), ...
     'VariableNames', {'num','tone','end'});
@@ -175,6 +196,8 @@ catchMiss = table(trial.num(mask), trial.tone(mask), trial.end(mask), ...
 
 beh.hit = hit;
 beh.miss = miss;
+beh.corrReject = nogoCR;
+beh.falseAlarm = nogoFA;
 beh.catchHit = catchHit;
 beh.catchMiss = catchMiss;
 

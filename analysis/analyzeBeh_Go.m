@@ -45,18 +45,19 @@ for j = 1:length(uniMouse)
     nGroup = length(match);
 
     % Initiate outcomes variables
-    lastOutcome = nan(nGroup, 4);
-    lblOutcomes = {'hit','miss','catchHit','catchMiss'};
+    lblOutcomes = {'hit','miss','CR','FA','catchHit','catchMiss'};
+    lastOutcome = nan(nGroup, length(lblOutcomes));
     lickHit = cell(nGroup, 1);
     lblLickHit = {'lick to hit (Hz)'};
     lickHitTime = [];
     rewTime = nan(length(match),2);
     lblRewTime = {'1st reward (min)','last reward (min)'};
-    eventTimes = cell(nGroup, 4);
-    lblTimes = {'tone to hit','tone to miss','tone to catchHit','tone to catchMiss'};
+    eventTimes = cell(nGroup, length(lblOutcomes));
+    lblTimes = {'tone to hit','tone to miss','tone to CR','tone to FA','tone to catchHit','tone to catchMiss'};
     iri = cell(length(match),1);
     endTime = []; 
-    dprime = [];
+    dprime = nan(length(match),1); 
+    hitRate = dprime; crRate = dprime; catchRate = dprime;
 
     for a = 1:length(match)
         mouse = comb(match(a)).mouse; % Store to be able to check in case of errors 
@@ -80,15 +81,33 @@ for j = 1:length(uniMouse)
 
         % Loop through each trial to first identify outcome
         % Possible outcomes: Hit, Miss, CatchHit, CatchMiss
-        lastOutcome(a, 1) = height(beh.hit);  % hit trials
-        lastOutcome(a, 2) = height(beh.miss); % miss
-        lastOutcome(a, 3) = height(beh.catchHit); % catchHit
-        lastOutcome(a, 4) = height(beh.catchMiss); % catchMiss
+        lastOutcome(a, 1) = height(beh.hit);  % hit = Go tone + lick
+        lastOutcome(a, 2) = height(beh.miss); % miss = Go tone + no lick
+        try lastOutcome(a, 3) = height(beh.corrReject); % corr reject = NoGo + no lick
+        catch, lastOutcome(a, 3) = nan;
+        end
+        try lastOutcome(a, 4) = height(beh.falseAlarm); % false alarm = NoGo + lick
+        catch, lastOutcome(a, 4) = nan;
+        end
+        lastOutcome(a, 5) = height(beh.catchHit); % catchHit
+        lastOutcome(a, 6) = height(beh.catchMiss); % catchMiss
 
         % d-prime
         nHit = height(beh.hit);
-        nTr = height(beh.trial);
-        dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));    
+        nTr = length(find(strcmpi([beh.trial.label], 'goTone'))); % go tone trials
+        dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
+
+        % hit rate (for Go trials)
+        % number of hits / number of trials with Go tone (hits + miss)
+        hitRate(a) = nHit/nTr;
+
+        % correct rejection rate (for NoGo trials)
+        crRate(a) = height(beh.corrReject)/length(find(strcmpi([beh.trial.label], 'nogoTone')));
+
+        % catch rate (for catch trials)
+        % for catch trials, no tone presented and mouse should NOT lick --
+        % if mouse does NOT lick during catch trial, logged as CatchMiss
+        catchRate(a) = height(beh.catchMiss)/length(find(strcmpi([beh.trial.label], 'catch')));
 
         % Generate matrix of licks aligned to rewarded Hit trials
         hits = beh.hit.end;
@@ -102,8 +121,14 @@ for j = 1:length(uniMouse)
         % Extract time from tone to outcome
         eventTimes{a,1} = beh.hit.end - beh.hit.tone; % time, in seconds
         eventTimes{a,2} = beh.miss.end - beh.miss.tone;
-        eventTimes{a,3} = beh.catchHit.end - beh.catchHit.tone;
-        eventTimes{a,4} = beh.catchMiss.end - beh.catchMiss.tone;
+        try eventTimes{a,3} = beh.corrReject.end - beh.corrReject.tone; 
+        catch eventTimes{a,3} = nan;
+        end
+        try eventTimes{a,4} = beh.falseAlarm.end - beh.falseAlarm.tone; 
+        catch eventTimes{a,4} = nan;
+        end
+        eventTimes{a,5} = beh.catchHit.end - beh.catchHit.tone;
+        eventTimes{a,6} = beh.catchMiss.end - beh.catchMiss.tone;
 
         % Inter-reward intervals
         iri{a} = diff(hits./adj); % inter-hit intervals, in seconds
@@ -121,6 +146,9 @@ for j = 1:length(uniMouse)
 
     out(j).outcome = array2table(lastOutcome, 'VariableNames', lblOutcomes);
     out(j).dprime  = dprime(:);
+    out(j).hitRate = hitRate(:);
+    out(j).crRate  = crRate(:);
+    out(j).catchRate = catchRate(:);
     out(j).lick    = cell2table(lickHit, 'VariableNames', lblLickHit);
     out(j).lickTime = peth.time;
     out(j).rewTime = array2table(rewTime, 'VariableNames', lblRewTime);
