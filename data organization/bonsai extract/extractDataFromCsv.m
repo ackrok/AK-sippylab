@@ -170,24 +170,28 @@ if ~isempty(statetrans) && istable(statetrans)
         beh = extract2AFCdataAK(statetrans);
         data.beh = beh;
         data.acq.beh = statetrans;
-    catch 
-        try % process Bonsai GoNoGo behavioral data
-            beh = extractGoNoGodataAK(statetrans);
-            data.beh = beh;
-            data.acq.beh = statetrans;
-        catch
-            fprintf('error processing.');
-        end
-    end
-    if isfield(data,'beh')
         if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
             try
                 data = alignBehTStoPhotoTS(data); % frame relative to photometry signal    
             catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
             end
         end
+        fprintf('DONE!\n');
+    catch 
+        try % process Bonsai GoNoGo behavioral data
+            beh = extractGoNoGodataAK(statetrans);
+            data.beh = beh;
+            data.acq.beh = statetrans;
+            if ~isempty(photoT) && istable(photoT) || isfield(data,'final')
+            try
+                data = alignBehTStoPhotoTS_GoNoGo(data); % frame relative to photometry signal    
+            catch, fprintf('error aligning behavior timeStamps to photometry timeStamps.\n')
+            end
             fprintf('DONE!\n');
-    end
+        catch
+            fprintf('error processing.');
+        end
+        end
 else
     data.beh = [];
     fprintf('no data found.\n');

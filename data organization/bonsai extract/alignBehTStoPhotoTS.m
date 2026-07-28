@@ -1,5 +1,6 @@
 function [data] = alignBehTStoPhotoTS(data)
 %
+% Behavior: 2AFC task, run with Bonsai
 % When looping over each GoTS, it first finds all the photometry frames 
 % that happen before the behavior event, and return the indices of those 
 % frames ('FramesB4Evnt'); 
@@ -31,7 +32,8 @@ function [data] = alignBehTStoPhotoTS(data)
 % Check whether data.beh timeStamps are in elapsedTime or already in 
 % samples aka index relative to photometry signal.
 % Simple check: if in samples then all values will be integers.
-if all(isinteger([data.beh.lickLeft])) || all(isinteger([data.beh.lickRight]))
+if all(isinteger([data.beh.lickLeft])) ...
+        || all(isinteger([data.beh.lickRight]))
     error('Behavior time-stamps are already in units of samples.');
 end
 

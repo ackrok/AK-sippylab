@@ -1,8 +1,9 @@
-function beh = extractGoNoGodataAK(statetrans)
+function beh = extractGoNoGodataAK(statetrans, varargin)
 % Extract behavioral events from bonsai output table for GoNoGo task
 % ACTIVE as of June 2026
 %
 % beh = extractGoNoGodataAK(statetrans);
+% beh = extractGoNoGodataAK(statetrans, 'photo'); % for photometry in Bonsai
 %
 % INPUT
 % 'statetrans' - table made from GoTone_StateTransitions.csv
@@ -11,6 +12,12 @@ function beh = extractGoNoGodataAK(statetrans)
 %       cd(filePath)
 %       fileName = dir('*StateTransitions.csv');
 %       statetrans=GetBonsai_Pho_StateTransitions_Celeste(fileName.name);
+% 'photo' - logical for photometry
+%       For experiments with behavioral and photometry, then use fxn
+%       'firstFrameBeforeEventIndex' to convert time stamps to "samples"
+%       for ease of alignment with photometry signal.
+%       fpTS = firstFrameBeforeEventIndex(compTimeStamp, timeVector)
+%       hitTSphoto = firstFrameBeforeEventIndex(beh.hits, data.acq.time{1});
 %
 % OUTPUT
 % 'beh' - structure with extracted behavioral data
@@ -26,10 +33,20 @@ function beh = extractGoNoGodataAK(statetrans)
 %
 % Written by Anya Krok, June 2026
 % Adapted from extract2AFCdataAK
+% Updated July 2026 to account for photometry data time stamps
 
 elapTime = [statetrans.ElapsedTime]; % elapsed time on bonsai
 elapTime_0 = elapTime - elapTime(1);
 TS0 = elapTime_0(:);
+if nargin == 2
+    switch varargin{1}
+        case 'photo'
+            TS0 = [statetrans.TimeOfDay]./1000; % computer time, in seconds
+            % For experiments with behavioral and photometry, then use fxn
+            % 'firstFrameBeforeEventIndex' to convert time stamps to "samples"
+            % for ease of alignment with photometry signal.
+    end
+end
 TS0 = TS0(:);
 statetrans.TS0 = TS0;
 
