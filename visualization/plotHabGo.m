@@ -23,6 +23,10 @@ function [ax, fig, out] = plotHabGo(comb)
 % Adapted from plotHabituationfor 2AFC task
 
 out = analyzeBeh_Go(comb);
+if length(out) > 1
+    choice = menu('Select mouse',{out.mouse});
+    out = out(choice);
+end
 nGroup = size(out.date,1);
 
 tic
@@ -152,18 +156,19 @@ for k = 1:nDate
     lbl = 'inter-reward interval';
     x = x./60; % convert to minutes
     h = scatter(x, y, 20, clr(k,:), 'filled', 'MarkerFaceAlpha', 0.6);
-    h.Annotation.LegendInformation.IconDisplayStyle = 'off';
-    mdl = fitlm(x, y);     % linear model
-    xs = sort(x);   % sorted x for plotting
-    % ys = predict(mdl, xs); % fitted mean values
-    [ypred, yci] = predict(mdl, xs, 'Alpha', 0.05); % 95% CI
-    h = plot(xs, ypred, '-', 'Color', clr(k,:), 'LineWidth', 1.5);
-    h.Annotation.LegendInformation.IconDisplayStyle = 'off';
-    fill([xs; flipud(xs)], [yci(:,1); flipud(yci(:,2))], ...
-     0.7*clr(k,:), 'EdgeColor', 'none', 'FaceAlpha', 0.4, ...
-        'DisplayName',out.date{k});
-
-    slope(k) = mdl.Coefficients.Estimate(2); % linear model y = b1 + b2*x
+    try 
+        h.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        mdl = fitlm(x, y);     % linear model
+        xs = sort(x);   % sorted x for plotting
+        % ys = predict(mdl, xs); % fitted mean values
+        [ypred, yci] = predict(mdl, xs, 'Alpha', 0.05); % 95% CI
+        h = plot(xs, ypred, '-', 'Color', clr(k,:), 'LineWidth', 1.5);
+        h.Annotation.LegendInformation.IconDisplayStyle = 'off';
+        fill([xs; flipud(xs)], [yci(:,1); flipud(yci(:,2))], ...
+         0.7*clr(k,:), 'EdgeColor', 'none', 'FaceAlpha', 0.4, ...
+            'DisplayName',out.date{k});
+        slope(k) = mdl.Coefficients.Estimate(2); % linear model y = b1 + b2*x
+    end
 end
 xlabel('time (min)'); 
 ylabel([lbl,' (s)']); yl = ylim; ylim([-5, yl(2)]);

@@ -115,8 +115,12 @@ for j = 1:length(uniMouse)
         lickHit{a} = peth.cts{1}; % Store lick data for right trials
     
         % Extract timing of 1st and last rewards
-        rewTime(a,1) = (hits(1)/adj)/60; % time to 1st reward, in minutes
-        rewTime(a,2) = (hits(end)/adj)/60; % time to last reward, in minutes
+        try
+            rewTime(a,1) = (hits(1)/adj)/60; % time to 1st reward, in minutes
+            rewTime(a,2) = (hits(end)/adj)/60; % time to last reward, in minutes
+        catch
+            rewTime(a,1) = nan; rewTime(a,2) = nan;
+        end
 
         % Extract time from tone to outcome
         eventTimes{a,1} = beh.hit.end - beh.hit.tone; % time, in seconds
@@ -131,8 +135,12 @@ for j = 1:length(uniMouse)
         eventTimes{a,6} = beh.catchMiss.end - beh.catchMiss.tone;
 
         % Inter-reward intervals
-        iri{a} = diff(hits./adj); % inter-hit intervals, in seconds
-        iri{a} = [hits(1)/adj; iri{a}]; % add delay to 1st reward
+        try
+            iri{a} = diff(hits./adj); % inter-hit intervals, in seconds
+            iri{a} = [hits(1)/adj; iri{a}]; % add delay to 1st reward
+        catch
+            iri{a} = nan;
+        end
 
         % Last time stamp
         try endTime(a) = beh.trialEnd(end)/60;
