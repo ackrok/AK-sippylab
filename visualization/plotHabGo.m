@@ -79,7 +79,7 @@ event = table2cell(out.event);
 lbl = out.outcome.Properties.VariableNames;
 
 ax(p) = subplot(spX, spY, p); hold on
-for a = 1:length(event)
+for a = [1 4 5]
     tone_mu = cellfun(@(x) mean(x(:)), event(:,a));
     tone_sem = cellfun(@(x) std(x(:)), event(:,a))./sqrt(cellfun(@(x) numel(x(:)), event(:,a)));
 

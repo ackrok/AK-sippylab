@@ -12,7 +12,7 @@ tic
 for a = 1:length(comb)
     signal = comb(a).nbFP{b};  % signal
     Fs = comb(a).Fs;         % sampling frequency, Hz
-    params.winSec = 10; params.fmax = 15; % parameters
+    params.winSec = 10; params.fmin = 0.5; params.fmax = 15; % parameters
     [P, T, F] = getWelch(signal, Fs, params); % ANALYZE
     out(a).mouse = comb(a).mouse; out(a).date = comb(a).date;
     out(a).P = P; out(a).T = T(:); out(a).F = F(:);
@@ -21,8 +21,8 @@ toc
 
 %% Band power
 band = [1 5]; % Hz
-win1 = [0 13]; % baseline window pre-injection
-win2 = [16 17]; % post-injection window
+win1 = [0 14]; % baseline window pre-injection
+win2 = [18 23]; % post-injection window
 inj  = 15; % injection time
 
 % compute band power for each time bin, output is 1 x nTimeBins 
@@ -52,7 +52,7 @@ for x = 1:length(uni)
     end
     xline(0, '--k', 'LineWidth', 2);
     xlabel('time from injection (min)'); xlim([-10 20]);
-    ylabel(sprintf('power in RSP (%d-%d Hz)', band(1), band(2))); ylim([0 1]);
+    ylabel(sprintf('power in RSP (%d-%d Hz)', band(1), band(2)));
     title(sprintf('Band Power - %s',out(a).mouse))
     legend({'saline','saline','ketamine'});
 end
@@ -74,7 +74,7 @@ clr(2:2:end, :) = repmat([1 0 0], numel(2:2:size(winPower,1)), 1);
 bb.CData = clr;
 
 %% Plot spectrogram (for ONE recording)
-a = 1;
+a = 9;
 fig = figure; theme(fig, 'light');
 imagesc(out(a).T, out(a).F, 10*log10(out(a).P));
 axis xy;

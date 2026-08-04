@@ -150,6 +150,17 @@ for n = 1:nTrial
 end
 trialEnd = TS0(idx);
 
+% For NoGo --> FalseAlarm, change trialEnd to be time stamp of 'Timeout'
+% (current default is time stamp of 'FalseAlarm'
+trialFA = find(strcmpi(lastAct,'falsealarm'));
+idxFAend = nan(numel(trialFA),1);
+for j = 1:numel(trialFA)
+    k = trialFA(j);
+    mask = ([statetrans.Trial] == k & strcmpi(ids,'timeout'));
+    idxFAend(j) = find(mask,1,'first');
+end
+trialEnd(trialFA) = TS0(idxFAend); 
+
 %%
 % ENSURE VARIABLES ARE THE SAME LENGTH
 %sometimes if run is terminated manually, it can end in the middle of a
