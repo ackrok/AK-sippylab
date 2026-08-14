@@ -54,7 +54,7 @@ for x = 1:length(uni)
     xlabel('time from injection (min)'); xlim([-10 20]);
     ylabel(sprintf('power in RSP (%d-%d Hz)', band(1), band(2)));
     title(sprintf('Band Power - %s',out(a).mouse))
-    legend({'saline','saline','ketamine'});
+    legend({'saline','ketamine'});
 end
 
 %% Plot comparison of mean band power
