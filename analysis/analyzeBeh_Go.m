@@ -57,6 +57,7 @@ for j = 1:length(uniMouse)
     iri = cell(length(match),1);
     endTime = []; 
     dprime = nan(length(match),1); 
+    bias = dprime;
     hitRate = dprime; crRate = dprime; catchRate = dprime;
 
     for a = 1:length(match)
@@ -94,12 +95,24 @@ for j = 1:length(uniMouse)
 
         % d-prime
         nHit = height(beh.hit);
-        nTr = length(find(strcmpi([beh.trial.label], 'goTone'))); % go tone trials
-        dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nTr + 1));
+        nMiss = height(beh.miss);
+        nGo = length(find(strcmpi([beh.trial.label], 'goTone'))); % go tone trials
+        if ~isnan(lastOutcome(a,3)) % if NoGo tones
+            nCR = height(beh.corrReject);
+            nFA = height(beh.falseAlarm);
+            nNoGo = length(find(strcmpi([beh.trial.label], 'nogoTone')));
+            zH = norminv((nHit + 0.5) ./ (nGo + 1)); % compute rates with log-linear correction and convert to Z (inverse normal)
+            zFA = norminv((nFA + 0.5) ./ (nNoGo + 1)); 
+            dprime(a) = zH - zFA; % dprime
+            bias(a) = -0.5 * (zH + zFA); 
+        else
+            dprime(a) = sqrt(2) .* norminv((nHit + 0.5) ./ (nGo + 1));
+            bias(a) = nan;
+        end
 
         % hit rate (for Go trials)
         % number of hits / number of trials with Go tone (hits + miss)
-        hitRate(a) = nHit/nTr;
+        hitRate(a) = nHit/nGo;
 
         % correct rejection rate (for NoGo trials)
         crRate(a) = height(beh.corrReject)/length(find(strcmpi([beh.trial.label], 'nogoTone')));
@@ -154,6 +167,7 @@ for j = 1:length(uniMouse)
 
     out(j).outcome = array2table(lastOutcome, 'VariableNames', lblOutcomes);
     out(j).dprime  = dprime(:);
+    out(j).bias    = bias(:); % response bias
     out(j).hitRate = hitRate(:);
     out(j).crRate  = crRate(:);
     out(j).catchRate = catchRate(:);

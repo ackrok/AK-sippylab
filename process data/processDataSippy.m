@@ -95,7 +95,7 @@ for a = 1:length(allPath)
             statetrans = GetBonsai_Pho_StateTransitions_Celeste(fileBeh);
             behType = '2AFC';
         end
-    catch, statetrans = [];
+    catch, statetrans = []; behType = 'OF';
     end
     if ~isempty(statetrans) && istable(statetrans)
         if statetrans.Trial(1) == 0

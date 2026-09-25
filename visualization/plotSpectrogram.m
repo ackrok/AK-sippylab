@@ -44,7 +44,8 @@ uni = unique({out.mouse});
 fig = figure; theme(fig, 'light');
 for x = 1:length(uni)
     match = find(strcmp({out.mouse},uni{x}));
-    subplot(length(uni),1,x); hold on
+    % subplot(length(uni),1,x); hold on
+    subplot(floor(sqrt(length(uni))), ceil(length(uni)/floor(sqrt(length(uni)))), x); hold on
     for y = 1:length(match)
         a = match(y);
         plot(out(a).T - inj, movmean(out(a).bandPower, 10), ...
@@ -53,8 +54,10 @@ for x = 1:length(uni)
     xline(0, '--k', 'LineWidth', 2);
     xlabel('time from injection (min)'); xlim([-10 20]);
     ylabel(sprintf('power in RSP (%d-%d Hz)', band(1), band(2)));
+    ylim([0 0.03])
     title(sprintf('Band Power - %s',out(a).mouse))
     legend({'saline','ketamine'});
+    axis square
 end
 
 %% Plot comparison of mean band power

@@ -38,9 +38,9 @@ for a = 1:length(fileName)
     fprintf('%d of %d...',a,length(fileName));
     tic
     load(fullfile(filePath, fileName{a}),'data'); % load each .mat file
-    beh = extractGoNoGodataAK(data.acq.beh);
-    data.beh = beh;
-    save(fullfile(filePath, fileName{a}),'data');
+    % beh = extractGoNoGodataAK(data.acq.beh);
+    % data.beh = beh;
+    % save(fullfile(filePath, fileName{a}),'data');
     comb = addDataComb(comb, data);
     try
         if ~isinteger(data.beh.trial.ledOn(1))
