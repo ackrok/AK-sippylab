@@ -107,7 +107,7 @@ for a = 1:length(allPath)
     catch, photoT = [];
     end
     try % frames
-        frames = table2array(GetBonsai_PhotometryFrames(fileFrames.name));
+        frames = table2array(GetBonsai_PhotometryFrames(fileFrames(1).name));
     catch, frames = [];
     end
 
