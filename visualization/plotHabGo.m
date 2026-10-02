@@ -32,20 +32,36 @@ nGroup = size(out.date,1);
 tic
 
 %%
-str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
-outcome = table2array(out.outcome);
-nHit   = sum(outcome(:,1), 2);
-nTrGo  = sum(outcome(:,1:2), 2);
 dprime = getdprime(comb);
+for a = 1:length(comb)
+    beh = comb(a).beh;
+    nHit = height(beh.hit);
+    nMiss = height(beh.miss);
+    nGo = length(find(strcmpi([beh.trial.label], 'goTone')));
+    nCR = height(beh.corrReject);
+    nFA = height(beh.falseAlarm);
+    nNoGo = length(find(strcmpi([beh.trial.label], 'nogoTone')));
+    rateHit = round(100*(nHit/nGo));
+    rateFA  = round(100*(nFA/nNoGo));
 
-lines = arrayfun(@(a) sprintf(...
-    '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. nogoCR = %1.2f. catchNoLick = %1.2f. end at %d min.\n', ...
-    a, out.date{a}, nHit(a), nTrGo(a), round(100*nHit(a)/nTrGo(a)), ...
-    dprime(a), out.crRate(a), out.catchRate(a), round(out.endTime(a)) ), ...
-    (1:nGroup).', 'UniformOutput', false);
+    fprintf(' (%d) %s: hit rate = %d/%d (%d%%). FA rate = %d/%d (%d%%). d\" = %1.2f. \n',...
+        a, comb(a).mouse, nHit, nGo, rateHit, nFA, nNoGo, rateFA, dprime(a));
+end
 
-str = [str, strcat(lines{:})];
-fprintf('%s\n \n', str);
+% str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
+% outcome = table2array(out.outcome);
+% nHit   = sum(outcome(:,1), 2);
+% nTrGo  = sum(outcome(:,1:2), 2);
+% dprime = getdprime(comb);
+% 
+% lines = arrayfun(@(a) sprintf(...
+%     '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. nogoCR = %1.2f. catchNoLick = %1.2f. end at %d min.\n', ...
+%     a, out.date{a}, nHit(a), nTrGo(a), round(100*nHit(a)/nTrGo(a)), ...
+%     dprime(a), out.crRate(a), out.catchRate(a), round(out.endTime(a)) ), ...
+%     (1:nGroup).', 'UniformOutput', false);
+% 
+% str = [str, strcat(lines{:})];
+% fprintf('%s\n \n', str);
 
 %%
 fig = figure; theme(fig,'light');
