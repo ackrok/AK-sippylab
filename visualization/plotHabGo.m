@@ -36,7 +36,7 @@ str = sprintf('\n%s performance (#hits/#trials)\n', out.mouse);
 outcome = table2array(out.outcome);
 nHit   = sum(outcome(:,1), 2);
 nTrGo  = sum(outcome(:,1:2), 2);
-dprime = out.dprime;
+dprime = getdprime(comb);
 
 lines = arrayfun(@(a) sprintf(...
     '\n  (%d) %s: hit rate = %d/%d (%d%%). d\" = %1.2f. nogoCR = %1.2f. catchNoLick = %1.2f. end at %d min.\n', ...
