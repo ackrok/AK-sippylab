@@ -60,6 +60,7 @@ for a = 1:length(allPath)
     filePath = pwd; % return current folder as string
     
     %% convert fileName into mouse and date IDs
+    clearvars sessionLbL cohortSave
     try
         mouse = regexp(filePath, 'JT0\d{2}', 'match', 'once'); % extract JT followed by 0 and two digits (e.g. JT019)
         date = regexp(filePath, '\d{6}', 'match', 'once'); % extract any sequence of exactly six digits (e.g. 251215)
@@ -68,11 +69,13 @@ for a = 1:length(allPath)
     end
     opts = inputdlg({sprintf('%s \n\n\n Mouse ID:',filePath), ...
         'Recording Date:', ...
+        'Session Label:', ...
         'Save to cohort folder? (yes/no)'}, ...
-        'Input', [1 40].*ones(3,2), ...
-        {mouse, date, 'no'});
+        'Input', [1 40].*ones(4,2), ...
+        {mouse, date, '', 'yes'});
     mouse = opts{1}; date = opts{2};
-    cohortSave = opts{3};
+    sessionLbl = opts{3};
+    cohortSave = opts{4};
     
     %% extract data into workspace
     try
@@ -126,15 +129,21 @@ for a = 1:length(allPath)
     % end
 
     %% start time
-    [~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts
-    parts = split(name, 'T');                                % {'2026-04-09','15-11-22'}
-    HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
-    YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
-    data.gen.startTime = [YMD;HMS]';
-    data.gen.startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
+    try
+        [~, name, ~] = fileparts(regexprep(filePath,'/$',''));   % remove trailing slash then fileparts
+        parts = split(name, 'T');                                % {'2026-04-09','15-11-22'}
+        HMS = cellfun(@str2double, split(parts{end}, '-'));      % [15 11 22]
+        YMD = cellfun(@str2double, split(parts{1}, '-'));        % [2026 04 09]
+        data.gen.startTime = [YMD;HMS]';
+        data.gen.startSec = HMS(1)*3600 + HMS(2)*60 + HMS(3);
+    end
 
     %% save file in same folder where .csv files are located
-    saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
+    if isempty(sessionLbl)
+        saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
+    else
+        saveName = sprintf('%s-%s_%s.mat',data.mouse,data.date,sessionLbl);
+    end
     save(fullfile(filePath, saveName), 'data');
     fprintf('%s: saved data.mat \n \n', data.ID);
     switch cohortSave
