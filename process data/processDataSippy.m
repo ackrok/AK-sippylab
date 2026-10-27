@@ -101,6 +101,7 @@ for a = 1:length(allPath)
     catch, statetrans = []; behType = 'OF';
     end
     if ~isempty(statetrans) && istable(statetrans)
+        statetrans(statetrans.Trial < 0, :) = [];
         if statetrans.Trial(1) == 0
             statetrans.Trial = statetrans.Trial + 1;
         end
