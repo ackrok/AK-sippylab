@@ -1,0 +1,101 @@
+% Description: parse processed .mat output file from 'processDataSippy' for
+% a multi-animal NPM recording into separate .mat files for each animal.
+% File will be renamed 'data' and saved in same folder as original file.
+%
+% Assumed naming format for G0, G1, G2, G3 is data.acq.FPnames = ...
+%   {'JT078 PFC DA', 'JT078 DMS DA', 'JT080 PFC DA', 'JT080 DMS DA'};
+%   and will create separate data files such that
+%   (1) data.mouse = JT078; data.acq.FPnames= {'PFC DA', 'DMS DA'} and 
+%   (2) data.mouse = JT080; data.acq.FPnames= {'PFC DA', 'DMS DA'} and 
+%
+% Anya Krok 2026
+
+[fileNames, filePath] = uigetfile('*.mat','MultiSelect','On');
+if isequal(fileNames, 0), return; end % if no files
+if ischar(fileNames), fileNames = {fileNames}; end % if single file
+
+%%
+for f = 1:length(fileNames)
+    load(fullfile(filePath,fileNames{f})); % load data into workspace
+    % parse unique mouse names from FPnames
+    mouseNames = cellfun(@(s) strtok(s), data.acq.FPnames, 'UniformOutput', false);
+    uniqueMice = unique(mouseNames, 'stable');
+    if numel(uniqueMice) < 2
+        warning('Skipping %s: expected multiple mice, found %d.', fileNames{f}, numel(uniqueMice));
+        continue
+    end
+    [~, baseName, ext] = fileparts(fileNames{f});
+
+    for m = 1:numel(uniqueMice)
+        mouse = uniqueMice{m};
+        idx = strcmp(mouseNames, mouse);
+
+        dataOut = data;
+        dataOut.acq.time = dataOut.acq.time(idx);
+        dataOut.acq.FP = dataOut.acq.FP(idx);
+        namesIn = dataOut.acq.FPnames(idx);
+        namesOut = namesIn;
+        for k = 1:numel(namesIn)
+            [~, part] = strtok(namesIn{k});
+            namesOut{k} = strtrim(part);
+        end
+        dataOut.acq.FPnames = namesOut;
+
+        dataOut.final.FP = dataOut.final.FP(idx);
+        dataOut.final.nbFP = dataOut.final.nbFP(idx);
+        dataOut.final.FPbaseline = dataOut.final.FPbaseline(idx);
+        dataOut.final.FPnames = stripMousePrefix(dataOut.final.FPnames(idx));
+
+        dataOut.mouse = mouse;
+        dataOut.ID = [mouse, '-', dataOut.date];
+
+        outFile = fullfile(filePath, sprintf('%s_%s%s', mouse, baseName, ext));
+        data = dataOut; 
+        save(outFile, 'data');
+        fprintf('SAVED: %s\n', outFile);
+    end
+
+
+    lbl = data.acq.FPnames;
+    if isempty(lbl{3}); continue, end
+    % duplicate structure
+    data2 = data;
+    % remove second subject from original data structure
+    rmv = 3:4;
+    data.acq.time(rmv) = [];
+    data.acq.FP(rmv) = [];
+    data.acq.FPnames(rmv) = [];
+    data.final.FP(rmv) = [];
+    data.final.nbFP(rmv) = [];
+    data.final.FPbaseline(rmv) = [];
+    data.final.FPnames(rmv) = [];
+    for b = 1:2
+        [~,part] = strtok(data.acq.FPnames{b},' ');
+        data.acq.FPnames{b} = strip(part,'left');
+        data.final.FPnames{b} = strip(part,'left');
+    end
+    % edit second data structure
+    rmv = 1:2;
+    data2.acq.time(rmv) = [];
+    data2.acq.FP(rmv) = [];
+    data2.acq.FPnames(rmv) = [];
+    data2.final.FP(rmv) = [];
+    data2.final.nbFP(rmv) = [];
+    data2.final.FPbaseline(rmv) = [];
+    data2.final.FPnames(rmv) = [];
+    mouse = strtok(data2.acq.FPnames{1},' ');
+    data2.mouse = mouse;
+    data2.ID = [mouse,'-',data2.date];
+    for b = 1:2
+        [~,part] = strtok(data2.acq.FPnames{b},' ');
+        data2.acq.FPnames{b} = strip(part,'left');
+        data2.final.FPnames{b} = strip(part,'left');
+    end
+    % save
+    save(fullfile(filePath,fileNames{f}),'data');
+    fprintf('SAVED: %s. ', fileNames{f});
+    data = data2;
+    [a,b] = strtok(fileNames{1}, '-');
+    save(fullfile(filePath,[data.mouse,b]),'data');
+    fprintf('SAVED: %s. \n', [data.mouse,b]);
+end

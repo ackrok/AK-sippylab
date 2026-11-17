@@ -4,7 +4,6 @@
 % Cohort 3C: PFC DA + DMS DA
 % Analysis: tone-evoked and lick-evoked DA signal
 
-
 fig = figure; theme(fig, 'light');
 spM = floor(sqrt(length(comb))); spN = ceil(length(comb)/spM);
 clr = {'g','b','r','m'};

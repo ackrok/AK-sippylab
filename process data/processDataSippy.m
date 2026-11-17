@@ -105,7 +105,7 @@ for a = 1:length(allPath)
         if statetrans.Trial(1) == 0
             statetrans.Trial = statetrans.Trial + 1;
         end
-    end
+    end 
     try % photometry
         photoT = GetBonsai_Photometry(filePhoto.name);
     catch, photoT = [];
