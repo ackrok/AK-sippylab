@@ -25,12 +25,16 @@ for f = 1:length(fileNames)
         continue
     end
     [mouse, baseName] = strtok(fileNames{f},'-');
+    dataMult = data; % rename variable, otherwise will be overwritten prior to save
 
     for m = 1:numel(uniqueMice)
         mouse = uniqueMice{m};
         idx = strcmp(mouseNames, mouse);
 
-        dataOut = data;
+        dataOut = dataMult;
+        dataOut.mouse = mouse; % rename mouse 
+        dataOut.ID = [mouse, '-', dataOut.date];
+
         dataOut.acq.time = dataOut.acq.time(idx);
         dataOut.acq.FP = dataOut.acq.FP(idx);
         namesIn = dataOut.acq.FPnames(idx);
@@ -45,9 +49,6 @@ for f = 1:length(fileNames)
         dataOut.final.nbFP = dataOut.final.nbFP(idx);
         dataOut.final.FPbaseline = dataOut.final.FPbaseline(idx);
         dataOut.final.FPnames = dataOut.acq.FPnames;
-
-        dataOut.mouse = mouse;
-        dataOut.ID = [mouse, '-', dataOut.date];
 
         outFile = fullfile(filePath, sprintf('%s%s', dataOut.mouse, baseName));
         data = dataOut; 
