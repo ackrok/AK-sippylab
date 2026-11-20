@@ -26,6 +26,7 @@ end
 
 comb(a).mouse = data.mouse; % store the loaded data in the structure
 comb(a).date  = data.date; % store the loaded data in the structure
+comb(a).lbl   = ''; 
 try
     comb(a).rec   = data.ID; % recording ID
 catch

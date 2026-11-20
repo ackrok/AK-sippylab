@@ -143,6 +143,7 @@ for a = 1:length(allPath)
     if isempty(sessionLbl)
         saveName = sprintf('%s-%s_data.mat',data.mouse,data.date);
     else
+        data.lbl = sessionLbl;
         saveName = sprintf('%s-%s_%s.mat',data.mouse,data.date,sessionLbl);
     end
     save(fullfile(filePath, saveName), 'data');
