@@ -42,6 +42,7 @@ for a = 1:length(fileName)
     % data.beh = beh;
     % save(fullfile(filePath, fileName{a}),'data');
     comb = addDataComb(comb, data);
+<<<<<<< Updated upstream
     % try
     %     if ~isinteger(data.beh.trial.ledOn(1))
     %         if isfield(data,'acq')
@@ -51,6 +52,17 @@ for a = 1:length(fileName)
     %     end
     % catch
     % end
+=======
+    try
+        if ~isinteger(data.beh.trial.ledOn(1))
+            if isfield(data,'acq')
+                % data.beh = extract2AFCdataAK(data.acq.beh);
+                % comb(a).beh = data.beh;
+            end
+        end
+    catch
+    end
+>>>>>>> Stashed changes
     toc
 end
 fprintf('SAVED comb.mat in filePath \n');
