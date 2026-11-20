@@ -1,3 +1,4 @@
+function [] = parseNPMmult()
 % Description: parse processed .mat output file from 'processDataSippy' for
 % a multi-animal NPM recording into separate .mat files for each animal.
 % File will be renamed 'data' and saved in same folder as original file.
@@ -55,4 +56,6 @@ for f = 1:length(fileNames)
         save(outFile, 'data');
         fprintf('SAVED: %s\n', outFile);
     end
+end
+
 end
