@@ -54,7 +54,7 @@ if ~isempty(photoT) && istable(photoT) && ~isempty(frames)
 
     % map varNames to photo column indices (photo has photometry cols starting at col 4)
     photStartCol = 4;
-    nameToPhotoCol = containers.Map(varNames, num2cell(photStartCol:(photStartCol+numel(varNames)-1)));
+    nameToPh otoCol = containers.Map(varNames, num2cell(photStartCol:(photStartCol+numel(varNames)-1)));
     
     %%
     % build signalRaw: first all green channels, then all red channels
