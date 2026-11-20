@@ -37,7 +37,7 @@ first4names = {'FrameCounter','SystemTimestamp','LedState','ComputerTimestamp'};
 Traw.Properties.VariableNames(1:4) = first4names;
 
 % Target G and R columns
-target = {'G0','G1','G2','G3','R1','R2','R3','R4'};
+target = {'G0','G1','G2','G3','G3','R0','R1','R2','R3','R4'};
 
 % Find which target columns are present (case-insensitive)
 rawNames = Traw.Properties.VariableNames;
